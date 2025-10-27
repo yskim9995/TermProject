@@ -2,7 +2,7 @@ from pico2d import load_image, get_time
 from sdl2 import SDL_KEYDOWN, SDLK_SPACE, SDLK_RIGHT, SDL_KEYUP, SDLK_LEFT, SDLK_a
 import os
 from state_machine import StateMachine  # StateMachine 클래스가 import 되어야 함
-
+import hpbar
 
 # 현재 작업 디렉토리(CWD)를 다시 한번 출력
 print("CWD:", os.getcwd())
@@ -81,23 +81,48 @@ class AttackEffect:
         self.start_time = get_time()
         self.frame_per_sec = 24.0
         self.duration = self.max_frame / self.frame_per_sec
+        self.bounding_box_width = 260
+        self.bounding_box_height = 220
+
+        self.hit_enemies = set()  # 이미 타격한 적을 추적하는 집합
+        # 🌟 2. 애니메이션 설정
+        self.max_frame = 6  # 총 6개 이미지
+        self.frame_per_sec = 12.0  # 1초에 12프레임 (속도 조절)
+        # 1회 재생에 걸리는 시간 (예: 6 / 12 = 0.5초)
+        self.anim_duration = self.max_frame / self.frame_per_sec
+
+        # 🌟 3. 이펙트 전체 수명 (예: 2초 동안 화면에 유지)
+        self.effect_lifetime = 0.5
+
+    def get_bb(self):
+        """
+        공격 이펙트의 현재 바운딩 박스를 반환합니다.
+        """
+        half_w = self.bounding_box_width / 2
+        half_h = self.bounding_box_height / 2
+        return self.x - half_w, self.y - half_h, self.x + half_w, self.y + half_h
 
     def update(self):
-        if not self.max_frame: return False  # 이미지가 로드되지 않았다면 즉시 제거
-
         elapsed_time = get_time() - self.start_time
-        self.frame = int(elapsed_time * self.frame_per_sec)
 
-        # 애니메이션이 끝나면 False를 반환
-        if elapsed_time > self.duration:
-            return False
+        # 🌟 1. 이펙트 수명 체크
+        if elapsed_time > self.effect_lifetime:
+            return False  # 2초가 지나면 False를 반환하여 제거
 
-        return True
+        # 🌟 2. 애니메이션 프레임 반복 재생 (Looping)
+        # (전체 경과 시간 % 1회 재생 시간) = 현재 루프의 시간
+        current_anim_time = elapsed_time % self.anim_duration
+        self.frame = int(current_anim_time * self.frame_per_sec)
 
+        # 프레임이 0~5 범위를 벗어나지 않게 보정
+        self.frame = max(0, min(self.frame, self.max_frame - 1))
+
+        return True  # 🌟 수명이 다할 때까지 True 반환 (유지)
+    # 339 272
     def draw(self):
         if self.frame < self.max_frame:
             current_image = EFFECT_IMAGE[self.frame]
-            draw_w, draw_h = 150, 150  # 이펙트 크기 (예시)
+            draw_w, draw_h = 339, 272  # 이펙트 크기 (예시)
 
             # TODO: 좌우 반전 로직 필요 (pico2d의 clip_composite_draw 등을 사용해 구현)
             # 여기서는 편의상 draw()를 사용합니다.
@@ -280,6 +305,8 @@ class Boy:
         self.frame = 0
         self.face_dir = 1
         self.dir = 0
+        self.max_hp = 100
+        self.hp = self.max_hp
         self.image = load_image('resource/animation_sheet.png')
         # self.image = load_image('resource/eff_sword_atk1_1.png')
 
@@ -314,17 +341,16 @@ class Boy:
 
     def update(self):
         self.state_machine.update()
-
         # 🌟 이펙트 업데이트 및 제거
         new_effects = []
         for e in self.effects:
-            if e.update():
+            if e.update():  # e.update()가 True(수명 안 끝남)인 경우에만 유지
                 new_effects.append(e)
         self.effects = new_effects
 
     def draw(self):
         self.state_machine.draw()
-
+        hpbar.draw(self.x,self.y,self.hp, self.max_hp,50)
         # 🌟 이펙트 그리기
         for e in self.effects:
             e.draw()
