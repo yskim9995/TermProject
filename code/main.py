@@ -1,6 +1,4 @@
 from pico2d import *
-from boy import Boy
-from grass import Grass
 
 
 # Game object class here
@@ -49,9 +47,9 @@ def render_world():
 
 running = True
 
-
-
-open_canvas()
+open_canvas(1280,720)
+from boy import Boy
+from grass import Grass
 reset_world()
 # game loop
 while running:
