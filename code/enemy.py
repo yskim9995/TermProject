@@ -165,7 +165,7 @@ class Enemy:
         half_h = self.bounding_box_height / 2
         return self.x - half_w, self.y - half_h, self.x + half_w, self.y + half_h
 
-    def update(self):
+    def update(self,dt):
         # main.py에서 호출될 함수. 상태 머신을 업데이트
         self.state_machine.update()
 
