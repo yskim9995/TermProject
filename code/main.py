@@ -57,6 +57,9 @@ def reset_world():
     global player
     player = Player(16, 16)
     game_world.add_object(player, 1)
+    game_world.addcollide_pairs('player:enemy',Player,None)
+
+
 
     _gun = Gun(player.x + 16, player.y , player)
     game_world.add_object(_gun, 1)

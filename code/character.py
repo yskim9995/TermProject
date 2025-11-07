@@ -215,6 +215,7 @@ class Player:
         self.hp = self.max_hp
         self.effects = []
 
+
         # 상태 객체 초기화
         self.IDLE = Idle(self)
         self.RUN = Run(self)
@@ -280,3 +281,6 @@ class Player:
 
     def fire(self):
         self.gun.try_fire(game_world.world[1])
+
+    def get_bb(self):
+        return self.x - self.scale[0] , self.y - self.scale[1] , self.x + self.scale , self.y + self.scale[1]
