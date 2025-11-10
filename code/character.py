@@ -143,7 +143,6 @@ class Run:
     def draw(self):
         flip_str = ''  # 기본값 (오른쪽, 뒤집지 않음)
         if self.Player.face_dir == -1:  # 왼쪽을 볼 때
-            print('반전')
             flip_str = 'h'  # 'h' = horizontal flip (좌우 반전)
 
         # 2. rotate_draw 대신 composite_draw 사용

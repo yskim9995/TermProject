@@ -114,7 +114,7 @@ while running:
     clear_canvas()
     render_world()
     update_canvas()
-    delay(0.01)
+    delay(0.1)
     # 5. 렌더링
 
 # finalization code

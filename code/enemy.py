@@ -37,58 +37,51 @@ class Idle:
         print('Enemy Exits Idle')
 
     def do(self):
-
         self.enemy.frame = (self.enemy.frame + 1) % 4
-
         # 일정 시간이 지나면 순찰 상태로 변경
         if get_time() - self.wait_start_time > IDLE_TIMER:
             self.enemy.state_machine.handle_state_event(('TIME_OUT', None))
 
     def draw(self):
-        FRAME_WIDTH = 32  # 🌟 실제 스프라이트 한 장의 너비
-        FRAME_HEIGHT = 16  # 🌟 실제 스프라이트 한 장의 높이
-        BOTTOM_ROW = 16 * 4  # 🌟 스프라이트 시트의 Y 위치
+        FRAME_WIDTH = 32
+        FRAME_HEIGHT = 16
+        # 🌟 수정됨: "위에서 2번째 줄" = 8번째 줄 (0~9)
+        BOTTOM_ROW = 32 * 4
         frame_x = self.enemy.frame * FRAME_WIDTH
-        # 🌟 가정: enemy_animation.png의 0, 100 라인이 걷기 모션
+
         if self.enemy.face_dir == 1:  # 오른쪽
             self.enemy.image.clip_draw(
                 frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
-                self.enemy.x, self.enemy.y
+                self.enemy.x, self.enemy.y,
+                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
             )
         else:  # 왼쪽
             self.enemy.image.clip_composite_draw(
                 frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
-                0, 'h', self.enemy.x, self.enemy.y
+                0, 'h', self.enemy.x, self.enemy.y,
+                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
             )
 
 class Patrol:
-    """
-    적이 일정 범위를 좌우로 순찰하는 상태
-    """
-
-
     def __init__(self, enemy):
         self.enemy = enemy
-        # 순찰 범위 (시작 지점 기준 좌우 200픽셀)
         self.patrol_range = (enemy.start_x - 200, enemy.start_x + 200)
 
     def enter(self, e):
-        self.enemy.dir = 1  # 오른쪽으로 순찰 시작
+        self.enemy.dir = 1
         self.enemy.face_dir = 1
-        self.wait_start_time = get_time()  # 순찰 시작 시간
-        print('Enemy Enters Patrol')
+        self.wait_start_time = get_time()
+        print('패트롤 시작')
 
     def exit(self, e):
-        print('Enemy Exits Patrol')
+        print('패트롤 나감')
 
     def do(self):
-        # 8프레임짜리 걷기 애니메이션이라고 가정
-        self.enemy.frame = (self.enemy.frame + 1) % 9
+        # 🌟 수정됨: 프레임 0~7 (총 8개) 반복
+        self.enemy.frame = (self.enemy.frame + 1) % 8
 
-        # 이동
         self.enemy.x += self.enemy.dir * ENEMY_SPEED
 
-        # 순찰 범위 끝에 도달하면 방향 전환
         if self.enemy.x > self.patrol_range[1]:
             self.enemy.dir = -1
             self.enemy.face_dir = -1
@@ -96,27 +89,32 @@ class Patrol:
             self.enemy.dir = 1
             self.enemy.face_dir = 1
 
-        # 일정 시간이 지나면 대기 상태로 변경
         if get_time() - self.wait_start_time > PATROL_TIMER:
             self.enemy.state_machine.handle_state_event(('TIME_OUT', None))
 
     def draw(self):
-        FRAME_WIDTH = 32  # 🌟 실제 스프라이트 한 장의 너비
-        FRAME_HEIGHT = 16  # 🌟 실제 스프라이트 한 장의 높이
-        BOTTOM_ROW = 16 * 3  # 🌟 스프라이트 시트의 Y 위치
+        FRAME_WIDTH = 32
+        FRAME_HEIGHT = 16
+        # 🌟 수정됨: "위에서 2번째 줄" = 8번째 줄 (0~9)
+        BOTTOM_ROW = 32 * 3
+
+        if  self.enemy.frame >= 4 and self.enemy.frame <= 6:
+            print('asdasd')
+            FRAME_HEIGHT = 30
         frame_x = self.enemy.frame * FRAME_WIDTH
-        # 🌟 가정: enemy_animation.png의 0, 100 라인이 걷기 모션
+
         if self.enemy.face_dir == 1:  # 오른쪽
             self.enemy.image.clip_draw(
                 frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
-                self.enemy.x, self.enemy.y
+                self.enemy.x, self.enemy.y,
+                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
             )
         else:  # 왼쪽
             self.enemy.image.clip_composite_draw(
                 frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
-                0, 'h', self.enemy.x, self.enemy.y
+                0, 'h', self.enemy.x, self.enemy.y,
+                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
             )
-
 
 # -----------------
 # 메인 Enemy 클래스
@@ -134,8 +132,15 @@ class Enemy:
         self.face_dir = 1
         self.max_hp = 100
         self.hp = self.max_hp
+
+        self.draw_width = 32
+        self.draw_height = 16
+
         self.bounding_box_width = 32
         self.bounding_box_height = 16
+
+        self.scale = [3.0, 3.0]
+        self.rotation = 0.0
 
         # 🌟 이미지 로드 (Boy.py와 동일한 'renderer' 오류 방지 패턴)
         if Enemy.image is None:
@@ -173,7 +178,7 @@ class Enemy:
     def draw(self):
         # main.py에서 호출될 함수. 현재 상태의 draw()를 호출
         self.state_machine.draw()
-        hpbar.draw(self.x, self.y, self.hp, self.max_hp, 70)
+        # hpbar.draw(self.x, self.y, self.hp, self.max_hp, 70)
     def handle_event(self, event):
         # 이 함수는 main.py의 SDL 이벤트가 아니라,
         # 상태 내부에서 발생하는 이벤트(예: time_out)를 처리하기 위함
