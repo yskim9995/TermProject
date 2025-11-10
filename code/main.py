@@ -3,7 +3,10 @@ import game_world
 import DEFINES
 
 from pico2d import SDL_BUTTON_LMASK, SDL_BUTTON_LEFT
+
 from enemy import *
+
+from Background import *
 
 # Game object class here
 
@@ -54,11 +57,14 @@ def handle_events():
                 player.handle_event(event)
 
 def reset_world():
+
+    bg =  Background()
+    game_world.add_object(bg, 0)
+
     global player
     player = Player(16, 90)
     game_world.add_object(player, 1)
     game_world.addcollide_pairs('player:enemy',player,None)
-
 
 
     enemys = [Enemy() for i in range(4)]
