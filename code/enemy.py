@@ -37,27 +37,27 @@ class Idle:
         print('Enemy Exits Idle')
 
     def do(self):
-        # 8프레임짜리 대기 애니메이션이라고 가정
-        self.enemy.frame = (self.enemy.frame + 1) % 8
+
+        self.enemy.frame = (self.enemy.frame + 1) % 4
 
         # 일정 시간이 지나면 순찰 상태로 변경
         if get_time() - self.wait_start_time > IDLE_TIMER:
             self.enemy.state_machine.handle_state_event(('TIME_OUT', None))
 
     def draw(self):
-        FRAME_WIDTH = 89  # 🌟 실제 스프라이트 한 장의 너비
-        FRAME_HEIGHT = 143  # 🌟 실제 스프라이트 한 장의 높이
-        BOTTOM_ROW = 89  # 🌟 스프라이트 시트의 Y 위치
+        FRAME_WIDTH = 32  # 🌟 실제 스프라이트 한 장의 너비
+        FRAME_HEIGHT = 16  # 🌟 실제 스프라이트 한 장의 높이
+        BOTTOM_ROW = 16 * 4  # 🌟 스프라이트 시트의 Y 위치
+        frame_x = self.enemy.frame * FRAME_WIDTH
         # 🌟 가정: enemy_animation.png의 0, 100 라인이 걷기 모션
         if self.enemy.face_dir == 1:  # 오른쪽
             self.enemy.image.clip_draw(
-                0, 0, FRAME_WIDTH, FRAME_HEIGHT,
+                frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
                 self.enemy.x, self.enemy.y
             )
         else:  # 왼쪽
-            # 🌟 clip_composite_draw를 사용하여 좌우 반전 ('h')
             self.enemy.image.clip_composite_draw(
-                0, 0, FRAME_WIDTH, FRAME_HEIGHT,
+                frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
                 0, 'h', self.enemy.x, self.enemy.y
             )
 
@@ -83,7 +83,7 @@ class Patrol:
 
     def do(self):
         # 8프레임짜리 걷기 애니메이션이라고 가정
-        self.enemy.frame = (self.enemy.frame + 1) % 8
+        self.enemy.frame = (self.enemy.frame + 1) % 9
 
         # 이동
         self.enemy.x += self.enemy.dir * ENEMY_SPEED
@@ -101,19 +101,19 @@ class Patrol:
             self.enemy.state_machine.handle_state_event(('TIME_OUT', None))
 
     def draw(self):
-        FRAME_WIDTH = 89  # 🌟 실제 스프라이트 한 장의 너비
-        FRAME_HEIGHT = 143  # 🌟 실제 스프라이트 한 장의 높이
-        BOTTOM_ROW = 89  # 🌟 스프라이트 시트의 Y 위치
+        FRAME_WIDTH = 32  # 🌟 실제 스프라이트 한 장의 너비
+        FRAME_HEIGHT = 16  # 🌟 실제 스프라이트 한 장의 높이
+        BOTTOM_ROW = 16 * 3  # 🌟 스프라이트 시트의 Y 위치
+        frame_x = self.enemy.frame * FRAME_WIDTH
         # 🌟 가정: enemy_animation.png의 0, 100 라인이 걷기 모션
         if self.enemy.face_dir == 1:  # 오른쪽
             self.enemy.image.clip_draw(
-                0, 0, FRAME_WIDTH, FRAME_HEIGHT,
+                frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
                 self.enemy.x, self.enemy.y
             )
         else:  # 왼쪽
-            # 🌟 clip_composite_draw를 사용하여 좌우 반전 ('h')
             self.enemy.image.clip_composite_draw(
-                0, 0, FRAME_WIDTH, FRAME_HEIGHT,
+                frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
                 0, 'h', self.enemy.x, self.enemy.y
             )
 
@@ -121,7 +121,7 @@ class Patrol:
 # -----------------
 # 메인 Enemy 클래스
 # -----------------
-
+# 32 x  16
 class Enemy:
     # 🌟 Boy 클래스에서 배운 대로, 이미지는 클래스 변수로 한 번만 로드
     image = None
@@ -134,15 +134,15 @@ class Enemy:
         self.face_dir = 1
         self.max_hp = 100
         self.hp = self.max_hp
-        self.bounding_box_width = 89
-        self.bounding_box_height = 143
+        self.bounding_box_width = 32
+        self.bounding_box_height = 16
 
         # 🌟 이미지 로드 (Boy.py와 동일한 'renderer' 오류 방지 패턴)
         if Enemy.image is None:
             print("Loading Enemy image...")
             try:
                 # 🌟 가정: 'resource' 폴더에 'enemy_animation.png' 파일이 있다고 가정
-                Enemy.image = load_image('resource/cha_test_15.png')
+                Enemy.image = load_image('resource/Sprites/Free Mushrooms/Mushroom_Reg.png')
             except Exception as e:
                 print(f"Enemy 이미지 로드 실패: {e}")
                 # 🌟 로드 실패 시 임시로 Boy 이미지 사용 (크래시 방지)

@@ -30,4 +30,4 @@ class Bullet:
 
     def get_bb(self):
         half = 6
-        return (self.x - half, self.y - half, self.x + half, self.y + half)
+        return self.x - half, self.y - half, self.x + half, self.y + half

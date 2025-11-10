@@ -3,7 +3,7 @@ import game_world
 import DEFINES
 
 from pico2d import SDL_BUTTON_LMASK, SDL_BUTTON_LEFT
-
+from enemy import *
 
 # Game object class here
 
@@ -59,6 +59,11 @@ def reset_world():
     game_world.add_object(player, 1)
     game_world.addcollide_pairs('player:enemy',Player,None)
 
+    global enemy
+
+    enemy = Enemy()
+
+    game_world.add_object(enemy,1)
 
 
     _gun = Gun(player.x + 16, player.y , player)
