@@ -1,6 +1,7 @@
 from pico2d import *
 import os
 from state_machine import StateMachine  # boy.py와 동일하게 상태 머신 사용
+import random
 import hpbar
 # --- 상태 정의 ---
 # 적의 상태에 따른 프레임 속도, 이동 속도 등을 정의
@@ -71,11 +72,9 @@ class Patrol:
         self.enemy.dir = 1
         self.enemy.face_dir = 1
         self.wait_start_time = get_time()
-        print('패트롤 시작')
 
     def exit(self, e):
-        print('패트롤 나감')
-
+        pass
     def do(self):
         # 🌟 수정됨: 프레임 0~7 (총 8개) 반복
         self.enemy.frame = (self.enemy.frame + 1) % 8
@@ -99,7 +98,6 @@ class Patrol:
         BOTTOM_ROW = 32 * 3
 
         if  self.enemy.frame >= 4 and self.enemy.frame <= 6:
-            print('asdasd')
             FRAME_HEIGHT = 30
         frame_x = self.enemy.frame * FRAME_WIDTH
 
@@ -116,6 +114,8 @@ class Patrol:
                 self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
             )
 
+
+
 # -----------------
 # 메인 Enemy 클래스
 # -----------------
@@ -124,8 +124,10 @@ class Enemy:
     # 🌟 Boy 클래스에서 배운 대로, 이미지는 클래스 변수로 한 번만 로드
     image = None
 
-    def __init__(self, x=400, y=90):
-        self.x, self.y = x, y
+    def __init__(self, x= 400, y=90):
+
+        self.x, self.y = random.randint(1600 - 800, 1600), 90
+
         self.start_x = x  # 순찰 시작 위치
         self.frame = 0
         self.dir = 0
@@ -166,8 +168,8 @@ class Enemy:
         )
 
     def get_bb(self):
-        half_w = self.bounding_box_width / 2
-        half_h = self.bounding_box_height / 2
+        half_w = self.bounding_box_width
+        half_h = self.bounding_box_height
         return self.x - half_w, self.y - half_h, self.x + half_w, self.y + half_h
 
     def update(self,dt):
@@ -177,9 +179,15 @@ class Enemy:
 
     def draw(self):
         # main.py에서 호출될 함수. 현재 상태의 draw()를 호출
+        draw_rectangle(*self.get_bb())
         self.state_machine.draw()
         # hpbar.draw(self.x, self.y, self.hp, self.max_hp, 70)
     def handle_event(self, event):
         # 이 함수는 main.py의 SDL 이벤트가 아니라,
         # 상태 내부에서 발생하는 이벤트(예: time_out)를 처리하기 위함
         self.state_machine.handle_state_event(event)
+    def handle_collision(self, group, other):
+        if group == 'enemy:bullet': # 충돌처리가 왔는데 이게 boy:ball 이 원인이야
+            print('몬스터가 총알에 맞음')
+        if group == 'player:enemy':
+            print('몬스터가 플레이어에 맞음')

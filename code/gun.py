@@ -3,6 +3,7 @@ import math
 import DEFINES
 from Bullet import Bullet
 import time
+import game_world
 from character import Player
 
 class Gun:
@@ -45,7 +46,9 @@ class Gun:
 
         # 4-5. 총알 생성 및 월드에 추가
         bullet = Bullet(bx, by, angle, owner=self.player, damage=10)
-        world_layer.append(bullet)
+        game_world.add_object(bullet , 1)
+        game_world.addcollide_pairs('enemy:bullet', None, bullet)
+        # world_layer.append(bullet) 원래 코드
 
     # 🌟 5. 마우스까지의 각도를 계산하는 내부 함수
     def _calc_angle_to_mouse(self):

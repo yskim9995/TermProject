@@ -1,4 +1,3 @@
-
 world = [[] for _ in range(4)] # layers for game objects
 
 def add_object(o, depth):
@@ -11,6 +10,7 @@ def remove_object(o):
     for layer in world:
         if o in layer:
             layer.remove(o)
+            remove_colision_object(o)
             return
 
     raise Exception("World 에 존재하지 않는 오브젝트를 지우려고 시도함")
@@ -64,6 +64,9 @@ def addcollide_pairs(group, a, b):
     if b:
         collision_pairs[group][1].append(b)
     #boy:ball: [[]],[[]]
+
+
+
 def handle_collision():
     for group, pairs in collision_pairs.items(): # pairs: [[a],[b]] 키하고 밸류하고 분류가 됨 item 이
         for a in pairs[0]:
@@ -71,4 +74,3 @@ def handle_collision():
                 if collide(a,b):
                     a.handle_collision(group,b)
                     b.handle_collision(group,a)
-    pass

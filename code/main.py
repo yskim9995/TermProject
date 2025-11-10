@@ -55,15 +55,21 @@ def handle_events():
 
 def reset_world():
     global player
-    player = Player(16, 16)
+    player = Player(16, 90)
     game_world.add_object(player, 1)
-    game_world.addcollide_pairs('player:enemy',Player,None)
+    game_world.addcollide_pairs('player:enemy',player,None)
 
-    global enemy
 
-    enemy = Enemy()
 
-    game_world.add_object(enemy,1)
+    enemys = [Enemy() for i in range(4)]
+    game_world.add_objects(enemys, 1)
+
+    for enemy in enemys:
+        game_world.addcollide_pairs('enemy:bullet', enemy, None)
+        game_world.addcollide_pairs('player:enemy', None, enemy)
+
+    #
+    #     game_world.addcollide_pairs('enemy:bullet', None, bullet)
 
 
     _gun = Gun(player.x + 16, player.y , player)
@@ -72,8 +78,12 @@ def reset_world():
     player.scale = [3.0, 3.0]
     _gun.scale = [2.0, 2.0]
 
+
+
+
 def update_world(d):
     game_world.update(dt)
+    game_world.handle_collision()
     pass
 
 
@@ -114,7 +124,7 @@ while running:
     clear_canvas()
     render_world()
     update_canvas()
-    delay(0.1)
+    delay(0.01)
     # 5. 렌더링
 
 # finalization code

@@ -1,4 +1,4 @@
-from pico2d import load_image, get_time
+from pico2d import *
 from sdl2 import SDL_KEYDOWN, SDLK_SPACE, SDLK_RIGHT, SDL_KEYUP, SDLK_LEFT, SDLK_a, SDLK_e, SDLK_d, SDLK_w,SDLK_s
 import os
 from state_machine import StateMachine  # StateMachine 클래스가 import 되어야 함
@@ -273,6 +273,7 @@ class Player:
         self.state_machine.draw()
         # hpbar.draw(self.x,self.y,self.hp, self.max_hp,50)
         self.gun.draw()
+        draw_rectangle(*self.get_bb())
 
     def handle_event(self, event):
         self.state_machine.handle_state_event(('INPUT', event))
@@ -282,4 +283,12 @@ class Player:
         self.gun.try_fire(game_world.world[1])
 
     def get_bb(self):
-        return self.x - self.scale[0] , self.y - self.scale[1] , self.x + self.scale , self.y + self.scale[1]
+        # half_w = self.width / 2
+        # half_h = self.height / 2
+        # return self.x - half_w, self.y - half_h, self.x + half_w, self.y + half_h
+        return self.x - self.width  , self.y - self.height , self.x + self.width , self.y + self.height
+
+    def handle_collision(self, group, other):
+        if group == 'player:enemy':  # 충돌처리가 왔는데 이게 boy:ball 이 원인이야
+            print('플레이어가 몬스터에 충돌')
+        pass
