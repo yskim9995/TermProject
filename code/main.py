@@ -80,6 +80,7 @@ def reset_world():
     for enemy in enemys:
         game_world.addcollide_pairs('enemy:bullet', enemy, None)
         game_world.addcollide_pairs('player:enemy', None, enemy)
+        game_world.addcollide_pairs('sword:enemy' , None , enemy)
 
     #
     #     game_world.addcollide_pairs('enemy:bullet', None, bullet)

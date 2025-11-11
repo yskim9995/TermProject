@@ -16,7 +16,9 @@ class SwordEffect:
         self.player = player  # 이펙트가 따라다닐 플레이어
         self.spawn_time = get_time()
         self.frame = 0
+        self.hit_enemies = [] # 이미 맞은 적 리스트
         DEFINES.Gunvisible = False
+        game_world.addcollide_pairs('sword:enemy', self, None )
         # 🌟 이펙트가 그려질 위치 오프셋 (플레이어 중심 기준)
         self.offset_x = 32  # (오른쪽으로 32px)
         self.offset_y = 0  # (y는 동일)
@@ -45,6 +47,7 @@ class SwordEffect:
         # 1. 수명이 다하면 제거
         if time_elapsed > SwordEffect.LIFETIME:
             game_world.remove_object(self)
+            game_world.remove_colision_object(self)
             DEFINES.Gunvisible = True
             return
 
@@ -91,8 +94,13 @@ class SwordEffect:
         # 4. 중심 좌표와 절반 크기를 이용해 바운딩 박스 반환
         return draw_x - half_w, draw_y - half_h, draw_x + half_w, draw_y + half_h
 
-    def handle_collision(self, g, o):
-        pass
+    def handle_collision(self, group, other):
+        if group == 'sword:enemy':
+            if other not in self.hit_enemies:
+                print('검에 적 맞음(최초 1 회)')
+                self.hit_enemies.append(other)
+                if other.hp > 0:
+                    other.state_machine.handle_state_event(('HIT', self.player))
 
 class Sword:
     def __init__(self, player):

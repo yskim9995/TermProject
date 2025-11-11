@@ -41,3 +41,4 @@ class Bullet:
         if group == 'enemy:bullet':
             print('총알에 몬스터 맞아서 볼 삭제')
             game_world.remove_object(self)
+            game_world.remove_colision_object(self)

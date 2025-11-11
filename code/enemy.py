@@ -258,11 +258,15 @@ class Enemy:
         # 상태 내부에서 발생하는 이벤트(예: time_out)를 처리하기 위함
         self.state_machine.handle_state_event(event)
     def handle_collision(self, group, other):
-        if group == 'enemy:bullet': # 충돌처리가 왔는데 이게 boy:ball 이 원인이야
+        if group == 'enemy:bullet':
             print('몬스터가 총알에 맞음')
             self.state_machine.handle_state_event(('HIT', other))
-
             # self.hp -= other.damage  # (Bullet/SwordEffect에 damage 변수가 있다면)
-            print(f"Enemy Hit! HP: {self.hp}")
-        if group == 'player:enemy':
+            # print(f"Enemy Hit! HP: {self.hp}")
+        elif group == 'player:enemy':
             print('몬스터가 플레이어에 맞음')
+        elif group == 'sword:enemy':
+            pass
+            # print('몬스터가 검에 맞음')
+            # if self.hp > 0:
+            #     self.state_machine.handle_state_event(('HIT', other.player))

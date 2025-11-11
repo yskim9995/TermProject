@@ -229,6 +229,7 @@ class Player:
 
         self.gun = Gun(self.x, self.y, self)
         self.sword = Sword(self)
+
         # 🌟 수정됨: 하드코딩된 16 대신 로드한 이미지의 실제 크기를 사용
         self.width = self.IdleImages[0].w
         self.height = self.IdleImages[0].h
