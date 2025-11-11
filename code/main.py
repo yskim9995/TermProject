@@ -7,6 +7,7 @@ from pico2d import SDL_BUTTON_LMASK, SDL_BUTTON_LEFT
 from enemy import *
 
 from Background import *
+from grass import Grass
 
 # Game object class here
 
@@ -68,6 +69,12 @@ def reset_world():
     bg =  Background()
     game_world.add_object(bg, 0)
 
+    for i in range(4):
+        long_grass_bar = Grass(240 + 483 * i, 30, 16, 223, 161, 33, scale = 3.0)
+        game_world.add_object(long_grass_bar, 0)
+        # game_world.addcollide_pairs('')
+
+
     global player
     player = Player(16, 90)
     game_world.add_object(player, 1)
@@ -84,6 +91,9 @@ def reset_world():
 
     #
     #     game_world.addcollide_pairs('enemy:bullet', None, bullet)
+
+
+
 
 
     _gun = Gun(player.x + 16, player.y , player)
