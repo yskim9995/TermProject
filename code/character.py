@@ -1,6 +1,8 @@
 from pico2d import *
 from sdl2 import SDL_KEYDOWN, SDLK_SPACE, SDLK_RIGHT, SDL_KEYUP, SDLK_LEFT, SDLK_a, SDLK_e, SDLK_d, SDLK_w,SDLK_s
 import os
+
+from sword import Sword
 from state_machine import StateMachine  # StateMachine 클래스가 import 되어야 함
 import hpbar
 
@@ -226,6 +228,7 @@ class Player:
         from gun import Gun
 
         self.gun = Gun(self.x, self.y, self)
+        self.sword = Sword(self)
         # 🌟 수정됨: 하드코딩된 16 대신 로드한 이미지의 실제 크기를 사용
         self.width = self.IdleImages[0].w
         self.height = self.IdleImages[0].h
@@ -267,6 +270,7 @@ class Player:
         # 🌟 수정됨: Player.update에서 프레임 관리를 제거 (각 상태가 담당)
         self.state_machine.update()
         self.gun.update(dt)
+        self.sword.update(dt)
 
 
     def draw(self):

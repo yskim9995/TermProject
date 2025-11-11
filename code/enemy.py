@@ -14,11 +14,79 @@ PATROL_TIMER = 5.0
 # boy.py의 time_out과 동일한 역할
 def time_out(e):
     return e[0] == 'TIME_OUT'
+def hit(e): # 🌟 'HIT' 이벤트 정의
+    return e[0] == 'HIT'
 
+def recover(e): # 🌟 'RECOVER' 이벤트 정의
+    return e[0] == 'RECOVER'
 
 # -----------------
 # 적(Enemy)의 상태 클래스
 # -----------------
+
+class Hit:
+    """
+    적이 피격당해 넉백되는 상태
+    """
+    # 🌟 [!] 피격 애니메이션 정보 (가정)
+    HIT_FRAMES = 2  # 피격 애니메이션 프레임 수
+    BOTTOM_ROW = 16 * 2  # 피격 애니메이션 Y 위치
+    FRAME_WIDTH = 32
+    FRAME_HEIGHT = 16
+
+    # 🌟 [!] 피격 설정 (가정)
+    KNOCKBACK_SPEED_PPS = 150  # 넉백 속도 (초당 픽셀)
+    HIT_DURATION = 0.5  # 피격 상태 지속 시간
+
+    def __init__(self, enemy):
+        self.enemy = enemy
+
+    def enter(self, e):
+        print('Enemy Enters Hit')
+        # 1. 충돌 이벤트(e)에서 충돌한 객체(other)를 가져옴
+        other = e[1]
+
+        # 2. 넉백 방향 결정 (other의 반대 방향)
+        #    other(플레이어/검기)가 왼쪽에 있으면 -> 오른쪽(1)으로 넉백
+        self.knockback_dir = 1 if self.enemy.x > other.x else -1
+
+        # 3. 타이머 및 프레임 초기화
+        self.start_time = get_time()
+        self.enemy.frame = 0
+
+    def exit(self, e):
+        print('Enemy Exits Hit')
+
+    def do(self):  # 🌟 update에서 dt를 받는다고 가정
+        # 1. 피격 애니메이션 재생 (0.1초마다 1프레임씩, 2개 프레임 반복)
+        frame_time = get_time() - self.start_time
+        self.enemy.frame = int((frame_time * 10) % Hit.HIT_FRAMES)  # 0, 1 반복
+
+        # 2. 넉백 이동 (dt 활용)
+        self.enemy.x += self.knockback_dir * Hit.KNOCKBACK_SPEED_PPS * 0.01
+
+        # 3. 지속 시간이 지나면 'RECOVER' 이벤트 발생 -> Idle 상태로
+        if get_time() - self.start_time > Hit.HIT_DURATION:
+            self.enemy.state_machine.handle_state_event(('RECOVER', None))
+
+    def draw(self):
+        FRAME_WIDTH = 32
+        FRAME_HEIGHT = 16
+        BOTTOM_ROW = 32 * 0
+        frame_x = self.enemy.frame * FRAME_WIDTH
+
+        if self.enemy.face_dir == 1:  # 오른쪽
+            self.enemy.image.clip_draw(
+                frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
+                self.enemy.x, self.enemy.y,
+                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
+            )
+        else:  # 왼쪽
+            self.enemy.image.clip_composite_draw(
+                frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
+                0, 'h', self.enemy.x, self.enemy.y,
+                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
+            )
 
 class Idle:
     """
@@ -158,12 +226,15 @@ class Enemy:
         # 상태 객체 및 상태 머신 초기화
         self.IDLE = Idle(self)
         self.PATROL = Patrol(self)
+        self.HIT = Hit(self)
+
         self.state_machine = StateMachine(
             self.IDLE,  # 시작 상태는 Idle
             {
                 # 이벤트: 대상 상태
-                self.IDLE: {time_out: self.PATROL},
-                self.PATROL: {time_out: self.IDLE}
+                self.IDLE: {time_out: self.PATROL , hit: self.HIT},
+                self.PATROL: {time_out: self.IDLE , hit: self.HIT},
+                self.HIT: {recover: self.IDLE}
             }
         )
 
@@ -189,5 +260,9 @@ class Enemy:
     def handle_collision(self, group, other):
         if group == 'enemy:bullet': # 충돌처리가 왔는데 이게 boy:ball 이 원인이야
             print('몬스터가 총알에 맞음')
+            self.state_machine.handle_state_event(('HIT', other))
+
+            # self.hp -= other.damage  # (Bullet/SwordEffect에 damage 변수가 있다면)
+            print(f"Enemy Hit! HP: {self.hp}")
         if group == 'player:enemy':
             print('몬스터가 플레이어에 맞음')

@@ -41,6 +41,10 @@ def handle_events():
             my = DEFINES.SCH - 1 - event.y
             DEFINES.mouseX = mx
             DEFINES.mouseY = my
+        #검 공격 시도
+        elif event.type == SDL_KEYDOWN and event.key == SDLK_z:
+            player.sword.try_attack()
+
 
         elif event.type == SDL_MOUSEBUTTONDOWN:
             # 왼쪽 버튼 클릭 시
@@ -55,6 +59,9 @@ def handle_events():
         else:
             if player:
                 player.handle_event(event)
+
+
+
 
 def reset_world():
 

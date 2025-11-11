@@ -6,3 +6,6 @@ mouseX = 0
 mouseY = 0
 
 dt = 0
+
+
+Gunvisible = True

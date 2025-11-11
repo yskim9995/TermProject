@@ -26,6 +26,8 @@ class Gun:
         self.fire_rate = 0.15
         self._last_fire = 0.0
 
+        self.visible = True
+
     def try_fire(self, world_layer):
         # 4-1. 연사 속도 체크
         now = get_time()
@@ -58,10 +60,13 @@ class Gun:
         return math.atan2(dy, dx)
 
     def draw(self):
-        self.image.rotate_draw(self.rotation, self.x, self.y, self.width*self.scale[0], self.height*self.scale[1]);
+        if self.visible :
+            self.image.rotate_draw(self.rotation, self.x, self.y, self.width*self.scale[0], self.height*self.scale[1]);
 
     def update(self,dt):
-
+        self.visible = DEFINES.Gunvisible
+        if not self.visible:
+            pass
         if self.player.face_dir == - 1:
             # 왼쪽
             self.x = self.player.x - 32
