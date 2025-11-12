@@ -91,35 +91,30 @@ def ground_collision(e):
 class Jump:
     def __init__(self, Player):
         self.Player = Player
-        self.vy = 0.0
-        self.gravity = 1.2
 
     def enter(self, e):
-        self.Player.dir = 0
-        if e and isinstance(e, tuple) and e[0] == 'INPUT':
-            pass
-            # if right_down(e) or left_up(e):
-            #     self.Player.dir = self.Player.face_dir = 1
-            # elif left_down(e) or right_up(e):
-            #     self.Player.dir = self.Player.face_dir = -1
-
-        self.vy = 18.0
+        self.Player.vy = JUMP_POWER_PPS
         self.Player.jump_start_time = get_time()
+        self.Player.frame = 0
+        self.Player.frame_time = 0.0
 
     def exit(self, e):
         pass
 
     def do(self,dt):
-        self.Player.frame = (self.Player.frame + 1) % 8
+        # 1. 애니메이션 (dt 기반)
+        self.Player.frame_time += dt
+        time_per_frame = 1.0 / ANIMATION_SPEED_FPS
+        if self.Player.frame_time >= time_per_frame:
+            self.Player.frame = (self.Player.frame + 1) % 8
+            self.Player.frame_time -= time_per_frame
 
-        if self.Player.x < 0:
-            self.Player.x = 16
-        elif self.Player.x > DEFINES.SCW:
-            self.Player.x = DEFINES.SCW - 16
-
+        # 2. 🌟 가로 이동 (수정됨)
         self.Player.x += self.Player.dir * RUN_SPEED_PPS * dt
-        self.Player.y += self.vy
-        self.vy -= self.gravity
+
+        # 3. 🌟 세로 이동 (수정됨)
+        self.Player.y += self.Player.vy * dt
+        self.Player.vy -= GRAVITY_PPS2 * dt  # dt 기반 중력
 
     def draw(self):
         self.Player.IdleImages[self.Player.frame].rotate_draw(
@@ -143,14 +138,14 @@ class Run:
         pass
 
     def do(self,dt):
-
         self.Player.x += self.Player.dir * RUN_SPEED_PPS * dt
-        if self.Player.x < 25:
-            self.Player.x += 5
-        elif self.Player.x > 1255:
-            self.Player.x -= 5
 
-        self.Player.x += self.Player.dir * 5
+        # 3. 세로 이동 (중력)
+        self.Player.y += self.Player.vy * dt
+        self.Player.vy -= GRAVITY_PPS2 * dt
+
+        # 4. 화면 경계 처리
+        self.Player.x = clamp(25, self.Player.x, DEFINES.SCW - 25)
 
     def draw(self):
         flip_str = ''  # 기본값 (오른쪽, 뒤집지 않음)
@@ -186,6 +181,8 @@ class Idle:
     def do(self,dt):
         self.Player.frame_time += dt
 
+        self.Player.y += self.Player.vy
+        self.Player.vy -= self.Player.gravity
         # 🌟 2. 1프레임당 재생 시간 (1.0 / 10.0 = 0.1초)
         time_per_frame = 1.0 / ANIMATION_SPEED_FPS
 
@@ -238,6 +235,8 @@ class Player:
         self.x = x
         self.y = y
 
+        self.vy = 0.0
+        self.gravity = 1.2
         self.hit_time = 0.0
         self.key_map = {'a': 0, 'd': 0}
         self.IDLE = Idle(self)
@@ -331,7 +330,18 @@ class Player:
                 screen_effects.trigger(0.1)
                 print('플레이어가 몬스터에 충돌')
         if group == 'player:ground':
-            if self.state_machine.cur_state == self.JUMP and self.JUMP.vy < 0:
-                # '땅에 닿았다'는 이벤트 발생
-                self.state_machine.handle_state_event(('GROUND_COLLISION', None))
+            if self.vy <= 0:
+
+                # 2-2. 땅 위에 정확히 서도록 y 위치 보정
+                # (other는 'ground' 객체, [3]은 get_bb()의 top)
+                ground_top_y = other.get_bb()[3]
+                # (self.height / 2는 get_bb()가 중앙 기준일 때)
+                self.y = ground_top_y + (self.height / 2)
+
+                # 2-3. Y속도를 0으로 (낙하 멈춤)
+                self.vy = 0
+
+                # 2-4. 'JUMP' 상태였다면 IDLE/RUN으로
+                if self.state_machine.cur_state == self.JUMP:
+                    self.state_machine.handle_state_event(('GROUND_COLLISION', None))
         pass

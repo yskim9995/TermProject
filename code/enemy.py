@@ -11,7 +11,7 @@ KNOCKBACK_SPEED_PPS = 150.0   # 넉백 속도 (초당 픽셀)
 IDLE_TIMER = 2.0
 PATROL_TIMER = 5.0
 HIT_DURATION = 0.5
-
+GRAVITY_PPS2 = 2000.0
 import DEFINES
 # --- 상태 이벤트 체크 함수 ---
 # boy.py의 time_out과 동일한 역할
@@ -101,6 +101,7 @@ class Idle:
     def enter(self, e):
         self.enemy.dir = 0
         self.enemy.frame = 0
+        self.enemy.frame_time = 0.0
         self.wait_start_time = get_time()  # 대기 시작 시간
         print('Enemy Enters Idle')
 
@@ -113,9 +114,12 @@ class Idle:
             self.enemy.frame_time = 0.0
             self.enemy.frame = (self.enemy.frame + 1) % 4
 
-        # 2. 상태 변경 (get_time 기반)
+        # 2. 상태 변경
         if get_time() - self.wait_start_time > IDLE_TIMER:
             self.enemy.state_machine.handle_state_event(('TIME_OUT', None))
+
+
+
 
     def draw(self):
         FRAME_WIDTH = 32
@@ -145,6 +149,7 @@ class Patrol:
     def enter(self, e):
         self.enemy.dir = 1
         self.enemy.face_dir = 1
+        self.enemy.frame_time = 0.0
         self.wait_start_time = get_time()
 
     def exit(self, e):
@@ -154,26 +159,21 @@ class Patrol:
         if self.enemy.frame_time >= (1.0 / ANIMATION_SPEED_FPS):
             self.enemy.frame_time = 0.0
             self.enemy.frame = (self.enemy.frame + 1) % 8
-
-        # 2. 🌟 이동 (dt 적용)
+        # 2. 이동 (X축)
         self.enemy.x += self.enemy.dir * ENEMY_SPEED_PPS * dt
-
-        # 3. 방향 전환
+        # 3. 방향/상태 전환
         if self.enemy.x > self.patrol_range[1]:
             self.enemy.dir = -1
             self.enemy.face_dir = -1
         elif self.enemy.x < self.patrol_range[0]:
             self.enemy.dir = 1
             self.enemy.face_dir = 1
-
-        # 4. 상태 변경 (get_time 기반)
         if get_time() - self.wait_start_time > PATROL_TIMER:
             self.enemy.state_machine.handle_state_event(('TIME_OUT', None))
 
     def draw(self):
         FRAME_WIDTH = 32
         FRAME_HEIGHT = 16
-        # 🌟 수정됨: "위에서 2번째 줄" = 8번째 줄 (0~9)
         BOTTOM_ROW = 32 * 3
 
         if  self.enemy.frame >= 4 and self.enemy.frame <= 6:
@@ -203,11 +203,11 @@ class Enemy:
     # 🌟 Boy 클래스에서 배운 대로, 이미지는 클래스 변수로 한 번만 로드
     image = None
 
-    def __init__(self, x= 400, y=90):
+    def __init__(self, x= 400, y=150):
 
-        self.x, self.y = random.randint(1600 - 800, 1600), 90
+        self.x, self.y = random.randint(200, DEFINES.SCW), 500
 
-        self.start_x = x  # 순찰 시작 위치
+        self.start_x = self.x  # 순찰 시작 위치
         self.frame = 0
         self.dir = 0
         self.face_dir = 1
@@ -216,13 +216,15 @@ class Enemy:
 
         self.draw_width = 32
         self.draw_height = 16
-
         self.bounding_box_width = 32
         self.bounding_box_height = 16
 
         self.scale = [3.0, 3.0]
         self.rotation = 0.0
         self.frame_time = 0.0
+
+        self.vy = 0.0
+        self.is_grounded = True  # (처음엔 땅에 있다고 가정)
         # 🌟 이미지 로드 (Boy.py와 동일한 'renderer' 오류 방지 패턴)
         if Enemy.image is None:
             print("Loading Enemy image...")
@@ -250,12 +252,27 @@ class Enemy:
         )
 
     def get_bb(self):
-        half_w = self.bounding_box_width
-        half_h = self.bounding_box_height
+        # 1. 스케일이 적용된 '전체' 너비와 높이를 계산
+        scaled_w = self.bounding_box_width * self.scale[0]  # 32 * 3.0 = 96
+        scaled_h = self.bounding_box_height * self.scale[1]  # 16 * 3.0 = 48
+
+        # 2. '절반' 너비와 높이를 계산
+        half_w = scaled_w / 3  # 48
+        half_h = scaled_h / 2  # 24
+
         return self.x - half_w, self.y - half_h, self.x + half_w, self.y + half_h
 
     def update(self,dt):
         # main.py에서 호출될 함수. 상태 머신을 업데이트
+        self.y += self.vy * dt
+        # 2-2. 땅에 있지 않다면 중력 적용
+        if not self.is_grounded:
+            self.vy -= GRAVITY_PPS2 * dt
+
+        # 2-3. (중요) 다음 프레임을 위해 "아직 땅이 아님"으로 가정
+        self.is_grounded = False
+
+        # 3. 상태 머신 업데이트 (X축 이동, 애니메이션 처리)
         self.state_machine.update(dt)
 
 
@@ -271,7 +288,7 @@ class Enemy:
         self.state_machine.handle_state_event(event)
     def handle_collision(self, group, other):
         if group == 'enemy:bullet':
-            print('몬스터가 총알에 맞음')
+            print('몬스터가 총알에 맞음!!!!!!!!!!!!!!!!!!!!!!!')
             self.state_machine.handle_state_event(('HIT', other))
             # self.hp -= other.damage  # (Bullet/SwordEffect에 damage 변수가 있다면)
             # print(f"Enemy Hit! HP: {self.hp}")
@@ -279,6 +296,15 @@ class Enemy:
             print('몬스터가 플레이어에 맞음')
         elif group == 'sword:enemy':
             pass
-            # print('몬스터가 검에 맞음')
-            # if self.hp > 0:
-            #     self.state_machine.handle_state_event(('HIT', other.player))
+
+
+        elif group == 'enemy:ground':
+
+            if self.vy <= 0:
+                my_bb = self.get_bb()
+                my_half_h = (my_bb[3] - my_bb[1]) / 2  # 내 실제 절반 높이
+                ground_top_y = other.get_bb()[3]
+
+                self.y = ground_top_y + my_half_h
+                self.vy = 0
+                self.is_grounded = True

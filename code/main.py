@@ -60,14 +60,20 @@ def reset_world():
     bg =  Background()
     game_world.add_object(bg, 0)
 
+
+    #지형지물 생성
     for i in range(4):
         long_grass_bar = Grass(240 + 483 * i, 30, 16, 223, 161, 33, scale = 3.0)
         game_world.add_object(long_grass_bar, 0)
         game_world.addcollide_pairs('player:ground', None, long_grass_bar)
+        game_world.addcollide_pairs('enemy:ground' , None , long_grass_bar)
+
     for i in range(4):
         long_grass_bar = Grass(723 + 483 * i, 200, 16, 223, 161, 33, scale = 3.0)
         game_world.add_object(long_grass_bar, 0)
         game_world.addcollide_pairs('player:ground', None, long_grass_bar)
+        game_world.addcollide_pairs('enemy:ground' , None , long_grass_bar)
+
 
     global player , flash_effect
 
@@ -82,7 +88,7 @@ def reset_world():
     flash_obj = screen_effects.load(DEFINES.SCW, DEFINES.SCH)
     game_world.add_object(flash_obj, 3)
 
-
+    #몬스터 추가
     enemys = [Enemy() for i in range(4)]
     game_world.add_objects(enemys, 1)
 
@@ -90,6 +96,7 @@ def reset_world():
         game_world.addcollide_pairs('enemy:bullet', enemy, None)
         game_world.addcollide_pairs('player:enemy', None, enemy)
         game_world.addcollide_pairs('sword:enemy' , None , enemy)
+        game_world.addcollide_pairs('enemy:ground', enemy, None)
 
     #
     #     game_world.addcollide_pairs('enemy:bullet', None, bullet)
