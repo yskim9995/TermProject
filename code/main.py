@@ -64,7 +64,10 @@ def reset_world():
         long_grass_bar = Grass(240 + 483 * i, 30, 16, 223, 161, 33, scale = 3.0)
         game_world.add_object(long_grass_bar, 0)
         game_world.addcollide_pairs('player:ground', None, long_grass_bar)
-
+    for i in range(4):
+        long_grass_bar = Grass(723 + 483 * i, 200, 16, 223, 161, 33, scale = 3.0)
+        game_world.add_object(long_grass_bar, 0)
+        game_world.addcollide_pairs('player:ground', None, long_grass_bar)
 
     global player , flash_effect
 
