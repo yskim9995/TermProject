@@ -75,11 +75,12 @@ class SwordEffect:
             self.EFFECT_WIDTH,
             self.EFFECT_HEIGHT
         )
-
-        draw_rectangle(*self.get_bb())
+        if DEFINES.bbvisible:
+            draw_rectangle(*self.get_bb())
 
     # (충돌 처리가 필요 없는 빈 함수들)
     def get_bb(self):
+
         draw_x = self.player.x + self.offset_x
         if self.player.face_dir == -1:  # 왼쪽을 볼 때
             draw_x = self.player.x - self.offset_x

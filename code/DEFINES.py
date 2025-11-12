@@ -7,5 +7,6 @@ mouseY = 0
 
 dt = 0
 
+bbvisible = False
 
 Gunvisible = True

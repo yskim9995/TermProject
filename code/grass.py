@@ -1,5 +1,6 @@
 from pico2d import *
 # self.image = load_image('resource/Sprites/Jungle Asset Pack/jungle tileset/jungle tileset.png')
+import DEFINES
 class Grass:
     tileset_image = None
 
@@ -38,7 +39,8 @@ class Grass:
         )
 
         # 바운딩 박스 그리기 (디버그용)
-        draw_rectangle(*self.get_bb())
+        if DEFINES.bbvisible:
+            draw_rectangle(*self.get_bb())
 
     def get_bb(self):
         # 🌟 현재 잔디 객체의 x, y, width, height를 기반으로 바운딩 박스 계산

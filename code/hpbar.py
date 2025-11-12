@@ -1,56 +1,77 @@
 from pico2d import load_image
 
-# 1. HP 바 이미지를 한 번만 로드하기 위한 전역 변수
-background_image = None
-fill_image = None
 
+class Hpbar:
+    # 1. HP 바 이미지를 한 번만 로드
+    background_image = None
+    fill_image = None
 
-def load_images():
-    """
-    HP 바 시스템에 필요한 이미지들을 로드합니다.
-    이 함수는 main.py에서 open_canvas() 호출 직후에 한 번만 호출되어야 합니다.
-    """
-    global background_image, fill_image
+    # 2. HP바 원본 크기 (로드 후 저장됨)
+    original_width = 0
+    original_height = 0
 
-    if background_image is None:
-        background_image = load_image('resource/Sprites/Ui/btl_gage_hp_back.png')
-    if fill_image is None:
-        fill_image = load_image('resource/btl_gage_hp.png')
+    def __init__(self, owner_player):
+        """
+        Player의 HP를 추적하는 HP바 객체를 생성합니다.
+        :param owner_player: HP를 추적할 Player 객체
+        """
+        # 3. HP를 가져올 '주인' (Player)을 저장
+        self.owner = owner_player
 
+        # 4. 이미지를 클래스 변수로 한 번만 로드
+        if Hpbar.background_image is None:
+            Hpbar.background_image = load_image('resource/Sprites/Ui/health bar/empty golden health bar 1.png')
+        if Hpbar.fill_image is None:
+            Hpbar.fill_image = load_image('resource/Sprites/Ui/health bar/golden health bar 1.png')
 
-def draw(x, y, hp, max_hp, bar_height_offset):
-    """
-    지정된 x, y 위치에 HP 바를 그립니다.
-    (x, y)는 캐릭터의 중심 위치입니다.
+        # 5. 원본 크기 저장
+        if Hpbar.background_image:
+            Hpbar.original_width = Hpbar.background_image.w
+            Hpbar.original_height = Hpbar.background_image.h
 
-    :param x: 캐릭터의 x 중심
-    :param y: 캐릭터의 y 중심
-    :param hp: 현재 HP
-    :param max_hp: 최대 HP
-    :param bar_height_offset: 캐릭터 y 위치에서 얼마나 높이 띄울지 (예: 50)
-    """
-    if background_image is None or fill_image is None:
-        # 이미지가 로드되지 않았다면 아무것도 그리지 않음
-        return
+    def update(self, dt):
+        # 6. update는 game_world에 의해 호출되지만,
+        #    HP바는 Player의 HP를 draw 시점에만 읽어가면 되므로
+        #    여기서는 할 일이 없습니다.
+        pass
 
-    # 1. HP 백분율 계산
-    hp_percentage = max(0, min(1, hp / max_hp))
+    def draw(self):
+        # 7. 그리기 직전에 주인의 HP를 가져옴
+        hp = self.owner.hp
+        max_hp = self.owner.max_hp
 
-    # 2. HP에 따라 채워질 너비 계산
-    fill_width = int(fill_image.w * hp_percentage)
+        # 8. HP 바를 그릴 고정 위치 및 크기 정의
+        SCALE = 3.0
+        # (pico2d (0,0)은 좌하단. 1600x900 창이라고 가정)
+        DRAW_X = 100  # 화면 왼쪽에서 250px
+        DRAW_Y = 850  # 화면 아래에서 850px (좌상단)
 
-    # 3. HP 바를 그릴 y 위치 계산
-    draw_y = y + bar_height_offset
+        # 9. 스케일된 크기
+        scaled_w = Hpbar.original_width * SCALE
+        scaled_h = Hpbar.original_height * SCALE
 
-    # 4. HP 바 배경 그리기
-    background_image.draw(x, draw_y)
+        # 10. HP 백분율
+        hp_percentage = max(0, min(1, hp / max_hp))
 
-    # 5. HP 바 채움 그리기 (clip_draw 사용)
-    #    (왼쪽 정렬을 위해 x 좌표를 살짝 보정합니다)
-    bar_center_x_offset = (fill_width - fill_image.w) / 2
+        # 11. 배경 그리기
+        Hpbar.background_image.draw(DRAW_X, DRAW_Y, scaled_w, scaled_h)
 
-    fill_image.clip_draw(
-        0, 0,  # left, bottom (원본 이미지에서 자를 위치)
-        fill_width, fill_image.h,  # width, height (원본 이미지에서 자를 크기)
-        x + bar_center_x_offset, draw_y  # x, y (화면에 그릴 위치)
-    )
+        # 12. 채움 그리기 (클리핑)
+        clip_w = int(Hpbar.original_width * hp_percentage)
+        draw_w = int(clip_w * SCALE)
+        offset = (draw_w - scaled_w) / 2
+        draw_fill_x = DRAW_X + offset
+
+        Hpbar.fill_image.clip_draw(
+            0, 0,
+            clip_w, Hpbar.original_height,
+            draw_fill_x, DRAW_Y,
+            draw_w, scaled_h
+        )
+
+    # (game_world가 요구하는 빈 함수들)
+    def get_bb(self):
+        return 0, 0, 0, 0
+
+    def handle_collision(self, group, other):
+        pass

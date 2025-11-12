@@ -8,7 +8,7 @@ from enemy import *
 
 from Background import *
 from grass import Grass
-
+from hpbar import Hpbar
 # Game object class here
 
 
@@ -65,7 +65,6 @@ def handle_events():
 
 
 def reset_world():
-
     bg =  Background()
     game_world.add_object(bg, 0)
 
@@ -80,6 +79,10 @@ def reset_world():
     game_world.add_object(player, 1)
     game_world.addcollide_pairs('player:enemy',player,None)
     game_world.addcollide_pairs('player:ground',player,None)
+
+    player_hp_bar = hpbar.Hpbar(player)
+
+    game_world.add_object(player_hp_bar, 0)
 
 
     enemys = [Enemy() for i in range(4)]

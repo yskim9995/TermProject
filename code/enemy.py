@@ -12,6 +12,7 @@ IDLE_TIMER = 2.0
 PATROL_TIMER = 5.0
 HIT_DURATION = 0.5
 
+import DEFINES
 # --- 상태 이벤트 체크 함수 ---
 # boy.py의 time_out과 동일한 역할
 def time_out(e):
@@ -260,7 +261,8 @@ class Enemy:
 
     def draw(self):
         # main.py에서 호출될 함수. 현재 상태의 draw()를 호출
-        draw_rectangle(*self.get_bb())
+        if DEFINES.bbvisible:
+            draw_rectangle(*self.get_bb())
         self.state_machine.draw()
         # hpbar.draw(self.x, self.y, self.hp, self.max_hp, 70)
     def handle_event(self, event):

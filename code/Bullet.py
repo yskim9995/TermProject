@@ -58,7 +58,8 @@ class Bullet:
     def draw(self):
         if self.alive:
             self.image.draw(self.x, self.y)
-            draw_rectangle(*self.get_bb())
+            if DEFINES.bbvisible:
+                draw_rectangle(*self.get_bb())
 
 
 

@@ -284,9 +284,9 @@ class Player:
 
     def draw(self):
         self.state_machine.draw()
-        # hpbar.draw(self.x,self.y,self.hp, self.max_hp,50)
         self.gun.draw()
-        draw_rectangle(*self.get_bb())
+        if DEFINES.bbvisible:
+            draw_rectangle(*self.get_bb())
 
     def handle_event(self, event):
         if event.type == SDL_KEYDOWN:
@@ -313,6 +313,7 @@ class Player:
 
     def handle_collision(self, group, other):
         if group == 'player:enemy':  # 충돌처리가 왔는데 이게 boy:ball 이 원인이야
+            self.hp -= 0.1
             print('플레이어가 몬스터에 충돌')
         if group == 'player:ground':
             if self.state_machine.cur_state == self.JUMP and self.JUMP.vy < 0:
