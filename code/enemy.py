@@ -5,10 +5,12 @@ import random
 import hpbar
 # --- 상태 정의 ---
 # 적의 상태에 따른 프레임 속도, 이동 속도 등을 정의
-ENEMY_SPEED = 5
+ENEMY_SPEED_PPS = 150.0       # 초당 150 픽셀 (기존 5 * 30fps 가정)
+ANIMATION_SPEED_FPS = 10.0      # 초당 10 프레임
+KNOCKBACK_SPEED_PPS = 150.0   # 넉백 속도 (초당 픽셀)
 IDLE_TIMER = 2.0
 PATROL_TIMER = 5.0
-
+HIT_DURATION = 0.5
 
 # --- 상태 이벤트 체크 함수 ---
 # boy.py의 time_out과 동일한 역할
@@ -57,16 +59,15 @@ class Hit:
     def exit(self, e):
         print('Enemy Exits Hit')
 
-    def do(self):  # 🌟 update에서 dt를 받는다고 가정
-        # 1. 피격 애니메이션 재생 (0.1초마다 1프레임씩, 2개 프레임 반복)
+    def do(self,dt):  # 🌟 update에서 dt를 받는다고 가정
         frame_time = get_time() - self.start_time
-        self.enemy.frame = int((frame_time * 10) % Hit.HIT_FRAMES)  # 0, 1 반복
+        self.enemy.frame = int((frame_time * 10) % Hit.HIT_FRAMES)
 
-        # 2. 넉백 이동 (dt 활용)
-        self.enemy.x += self.knockback_dir * Hit.KNOCKBACK_SPEED_PPS * 0.01
+        # 2. 🌟 넉백 이동 (dt 적용)
+        self.enemy.x += self.knockback_dir * KNOCKBACK_SPEED_PPS * dt
 
-        # 3. 지속 시간이 지나면 'RECOVER' 이벤트 발생 -> Idle 상태로
-        if get_time() - self.start_time > Hit.HIT_DURATION:
+        # 3. 상태 복귀 (get_time 기반)
+        if get_time() - self.start_time > HIT_DURATION:
             self.enemy.state_machine.handle_state_event(('RECOVER', None))
 
     def draw(self):
@@ -105,9 +106,13 @@ class Idle:
     def exit(self, e):
         print('Enemy Exits Idle')
 
-    def do(self):
-        self.enemy.frame = (self.enemy.frame + 1) % 4
-        # 일정 시간이 지나면 순찰 상태로 변경
+    def do(self,dt):
+        self.enemy.frame_time += dt
+        if self.enemy.frame_time >= (1.0 / ANIMATION_SPEED_FPS):
+            self.enemy.frame_time = 0.0
+            self.enemy.frame = (self.enemy.frame + 1) % 4
+
+        # 2. 상태 변경 (get_time 기반)
         if get_time() - self.wait_start_time > IDLE_TIMER:
             self.enemy.state_machine.handle_state_event(('TIME_OUT', None))
 
@@ -143,12 +148,16 @@ class Patrol:
 
     def exit(self, e):
         pass
-    def do(self):
-        # 🌟 수정됨: 프레임 0~7 (총 8개) 반복
-        self.enemy.frame = (self.enemy.frame + 1) % 8
+    def do(self,dt):
+        self.enemy.frame_time += dt
+        if self.enemy.frame_time >= (1.0 / ANIMATION_SPEED_FPS):
+            self.enemy.frame_time = 0.0
+            self.enemy.frame = (self.enemy.frame + 1) % 8
 
-        self.enemy.x += self.enemy.dir * ENEMY_SPEED
+        # 2. 🌟 이동 (dt 적용)
+        self.enemy.x += self.enemy.dir * ENEMY_SPEED_PPS * dt
 
+        # 3. 방향 전환
         if self.enemy.x > self.patrol_range[1]:
             self.enemy.dir = -1
             self.enemy.face_dir = -1
@@ -156,6 +165,7 @@ class Patrol:
             self.enemy.dir = 1
             self.enemy.face_dir = 1
 
+        # 4. 상태 변경 (get_time 기반)
         if get_time() - self.wait_start_time > PATROL_TIMER:
             self.enemy.state_machine.handle_state_event(('TIME_OUT', None))
 
@@ -211,7 +221,7 @@ class Enemy:
 
         self.scale = [3.0, 3.0]
         self.rotation = 0.0
-
+        self.frame_time = 0.0
         # 🌟 이미지 로드 (Boy.py와 동일한 'renderer' 오류 방지 패턴)
         if Enemy.image is None:
             print("Loading Enemy image...")
@@ -245,7 +255,7 @@ class Enemy:
 
     def update(self,dt):
         # main.py에서 호출될 함수. 상태 머신을 업데이트
-        self.state_machine.update()
+        self.state_machine.update(dt)
 
 
     def draw(self):

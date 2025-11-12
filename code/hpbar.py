@@ -13,9 +13,9 @@ def load_images():
     global background_image, fill_image
 
     if background_image is None:
-        background_image = load_image('resource/hp_bar_background.png')
+        background_image = load_image('resource/Sprites/Ui/btl_gage_hp_back.png')
     if fill_image is None:
-        fill_image = load_image('resource/hp_bar.png')
+        fill_image = load_image('resource/btl_gage_hp.png')
 
 
 def draw(x, y, hp, max_hp, bar_height_offset):

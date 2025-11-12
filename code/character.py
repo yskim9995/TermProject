@@ -7,9 +7,12 @@ from state_machine import StateMachine  # StateMachine 클래스가 import 되�
 import hpbar
 
 import game_world
-
+import DEFINES
 # ... (파일 경로 체크 부분은 동일) ...
 
+RUN_SPEED_PPS = 300.0  # 초당 300 픽셀
+JUMP_POWER_PPS = 700.0 # 점프 초기 속도 (초당)
+GRAVITY_PPS2 = 2000.0  # 중력 가속도 (초당)d
 # ----------------------------------------------------
 # 1. 이벤트 체크 함수 (Event Check Functions)
 # ----------------------------------------------------
@@ -24,7 +27,7 @@ def keyDown_w(e):
     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_w
 
 def keyUp_w(e):
-    return e[0] == 'INPUT' and e[1].type == SDL_KEYUP and e[1].key == SDLK_w
+    return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_w
 
 
 def keyDown_s(e):
@@ -51,6 +54,19 @@ def time_out(e):
 
 def attack_timeout(e):
     return e[0] == 'ATTACK_TIME_OUT'
+
+def move_event(e):
+    return e[0] == 'MOVE'
+
+# 🌟 새로운 이벤트: 멈춤
+def stop_event(e):
+    return e[0] == 'STOP'
+
+# 🌟 새로운 이벤트: 땅에 닿음 (handle_collision에서 사용)
+def ground_collision(e):
+    return e[0] == 'GROUND_COLLISION'
+
+
 
 
 # def right_down(e):
@@ -92,20 +108,17 @@ class Jump:
     def exit(self, e):
         pass
 
-    def do(self):
+    def do(self,dt):
         self.Player.frame = (self.Player.frame + 1) % 8
+
         if self.Player.x < 0:
             self.Player.x = 16
-        elif self.Player.x > 1255:
-            self.Player.x = 1255
-        self.Player.x += self.Player.dir * 5
+        elif self.Player.x > DEFINES.SCW:
+            self.Player.x = DEFINES.SCW - 16
+
+        self.Player.x += self.Player.dir * RUN_SPEED_PPS * dt
         self.Player.y += self.vy
         self.vy -= self.gravity
-        ground_y = 90
-        if self.Player.y <= ground_y:
-            self.Player.y = ground_y
-            self.vy = 0.0
-            self.Player.state_machine.handle_state_event(('TIME_OUT', None))
 
     def draw(self):
         self.Player.IdleImages[self.Player.frame].rotate_draw(
@@ -123,18 +136,14 @@ class Run:
     def __init__(self, Player):
         self.Player = Player
     def enter(self, e):
-        if keyDown_d(e) or keyUp_a(e):
-            self.Player.dir = self.Player.face_dir = 1
-        elif keyDown_a(e) or keyUp_d(e):
-            self.Player.dir = self.Player.face_dir = -1
-
+        pass
     def exit(self, e):
 
         pass
 
-    def do(self):
+    def do(self,dt):
 
-        self.Player.frame = (self.Player.frame + 1) % 8
+        self.Player.x += self.Player.dir * RUN_SPEED_PPS * dt
         if self.Player.x < 25:
             self.Player.x += 5
         elif self.Player.x > 1255:
@@ -165,13 +174,14 @@ class Idle:
         self.Player = Player
 
     def enter(self, e):
-        self.Player.dir = 0
         self.Player.wait_start_time = get_time()
+        # self.Player.dir = 0
+        # self.Player.wait_start_time = get_time()
 
     def exit(self, e):
         pass
 
-    def do(self):
+    def do(self,dt):
         self.Player.frame = (self.Player.frame + 1) % 8
         # if get_time() - self.Player.wait_start_time > 2.0:
         #     self.Player.state_machine.handle_state_event(('TIME_OUT', None))
@@ -216,21 +226,20 @@ class Player:
         self.hp = self.max_hp
         self.effects = []
 
+        self.x = x
+        self.y = y
 
-        # 상태 객체 초기화
+        self.key_map = {'a': 0, 'd': 0}
         self.IDLE = Idle(self)
         self.RUN = Run(self)
         self.JUMP = Jump(self)
 
-        self.x = x
-        self.y = y
 
         from gun import Gun
 
         self.gun = Gun(self.x, self.y, self)
         self.sword = Sword(self)
-
-        # 🌟 수정됨: 하드코딩된 16 대신 로드한 이미지의 실제 크기를 사용
+        # 하드코딩된 16 대신 로드한 이미지의 실제 크기를 사용
         self.width = self.IdleImages[0].w
         self.height = self.IdleImages[0].h
 
@@ -240,36 +249,35 @@ class Player:
         self.state_machine = StateMachine(
             self.IDLE,
             {
-                # IDLE 상태: '키를 누르면' JUMP 또는 RUN
                 self.IDLE: {
                     keyDown_w: self.JUMP,
-                    keyDown_a: self.RUN,  # 'a' 누르면 RUN
-                    keyDown_d: self.RUN,
-
-                    # 💡 (keyUp 이벤트는 여기서 필요 없습니다)
+                    move_event: self.RUN  # 'MOVE' 이벤트가 오면 RUN
                 },
-
-                # RUN 상태: '키를 떼면' IDLE, '다른 키를 누르면' JUMP
                 self.RUN: {
                     keyDown_w: self.JUMP,
-                    keyUp_a: self.IDLE,  # 'a' 떼면 IDLE
-                    keyUp_d: self.IDLE,  # 'd' 떼면 IDLE
-                    keyDown_a: self.RUN,
-                    keyDown_d: self.RUN,# 'd' 누르면 RUN
-                    # 💡 (keyDown 이벤트는 여기서 IDLE로 가면 안 됩니다)
+                    stop_event: self.IDLE  # 'STOP' 이벤트가 오면 IDLE
                 },
-
-                # JUMP 상태: 점프가 끝나면(time_out) IDLE
                 self.JUMP: {
-                    time_out: self.IDLE
-                    # 💡 (JUMP 중에는 키 입력으로 상태가 바뀌지 않는 것이 일반적입니다.
-                    #    공중 이동은 Jump 상태의 'do' 함수에서 처리해야 합니다.)
+                    ground_collision:self.IDLE
                 }
             })
-
     def update(self,dt):
-        # 🌟 수정됨: Player.update에서 프레임 관리를 제거 (각 상태가 담당)
-        self.state_machine.update()
+        # 🌟 3. 'dir'을 매 프레임 'key_map' 기준으로 계산
+        new_dir = self.key_map['d'] - self.key_map['a']
+
+        # 방향이 0이 아니게 되었을 때 (정지 -> 움직임)
+        if self.state_machine.cur_state == self.IDLE and new_dir != 0:
+            self.state_machine.handle_state_event(('MOVE', None))
+            # (RUN 상태인데 키가 떼지면 -> 'STOP' 이벤트 전송)
+        elif self.state_machine.cur_state == self.RUN and new_dir == 0:
+            self.state_machine.handle_state_event(('STOP', None))
+
+        self.dir = new_dir  # 최종 방향 업데이트
+
+        # 'dir'이 0이 아닐 때만 face_dir 업데이트
+        if self.dir != 0:
+            self.face_dir = self.dir
+        self.state_machine.update(dt)
         self.gun.update(dt)
         self.sword.update(dt)
 
@@ -281,13 +289,23 @@ class Player:
         draw_rectangle(*self.get_bb())
 
     def handle_event(self, event):
-        self.state_machine.handle_state_event(('INPUT', event))
+        if event.type == SDL_KEYDOWN:
+            if event.key == SDLK_a:
+                self.key_map['a'] = 1
+            elif event.key == SDLK_d:
+                self.key_map['d'] = 1
+        elif event.type == SDL_KEYUP:
+            if event.key == SDLK_a:
+                self.key_map['a'] = 0
+            elif event.key == SDLK_d:
+                self.key_map['d'] = 0
         self.state_machine.handle_state_event(('INPUT', event))
 
     def fire(self):
         self.gun.try_fire(game_world.world[1])
 
     def get_bb(self):
+
         # half_w = self.width / 2
         # half_h = self.height / 2
         # return self.x - half_w, self.y - half_h, self.x + half_w, self.y + half_h
@@ -296,4 +314,8 @@ class Player:
     def handle_collision(self, group, other):
         if group == 'player:enemy':  # 충돌처리가 왔는데 이게 boy:ball 이 원인이야
             print('플레이어가 몬스터에 충돌')
+        if group == 'player:ground':
+            if self.state_machine.cur_state == self.JUMP and self.JUMP.vy < 0:
+                # '땅에 닿았다'는 이벤트 발생
+                self.state_machine.handle_state_event(('GROUND_COLLISION', None))
         pass

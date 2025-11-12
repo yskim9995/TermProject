@@ -6,8 +6,8 @@ class StateMachine:
         self.cur_state.enter(('START', 0))
         self.rules = rules
 
-    def update(self):
-        self.cur_state.do()
+    def update(self , dt):
+        self.cur_state.do(dt)
 
     def draw(self):
         self.cur_state.draw()
