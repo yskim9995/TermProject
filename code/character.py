@@ -13,6 +13,7 @@ import DEFINES
 RUN_SPEED_PPS = 300.0  # 초당 300 픽셀
 JUMP_POWER_PPS = 700.0 # 점프 초기 속도 (초당)
 GRAVITY_PPS2 = 2000.0  # 중력 가속도 (초당)d
+ANIMATION_SPEED_FPS = 10.0
 # ----------------------------------------------------
 # 1. 이벤트 체크 함수 (Event Check Functions)
 # ----------------------------------------------------
@@ -175,16 +176,24 @@ class Idle:
 
     def enter(self, e):
         self.Player.wait_start_time = get_time()
-        # self.Player.dir = 0
+        self.Player.frame = 0  # 🌟 프레임 0부터 시작
+        self.Player.frame_time = 0.0  # 🌟 타이머 초기화
         # self.Player.wait_start_time = get_time()
 
     def exit(self, e):
         pass
 
     def do(self,dt):
-        self.Player.frame = (self.Player.frame + 1) % 8
-        # if get_time() - self.Player.wait_start_time > 2.0:
-        #     self.Player.state_machine.handle_state_event(('TIME_OUT', None))
+        self.Player.frame_time += dt
+
+        # 🌟 2. 1프레임당 재생 시간 (1.0 / 10.0 = 0.1초)
+        time_per_frame = 1.0 / ANIMATION_SPEED_FPS
+
+        # 🌟 3. 누적 시간이 1프레임 시간(0.1초)을 넘었는지 확인
+        if self.Player.frame_time >= time_per_frame:
+            # 🌟 4. 프레임을 1 증가시키고 타이머 초기화 (넘은 시간은 유지)
+            self.Player.frame = (self.Player.frame + 1) % 8  # 8 프레임 반복
+            self.Player.frame_time -= time_per_frame
 
     def draw(self):
         flip_str = ''  # 기본값 (오른쪽, 뒤집지 않음)
@@ -225,7 +234,7 @@ class Player:
         self.max_hp = 100
         self.hp = self.max_hp
         self.effects = []
-
+        self.frame_time = 0.0
         self.x = x
         self.y = y
 

@@ -68,14 +68,14 @@ def reset_world():
 
     global player , flash_effect
 
-
+    # 플레이어
     player = Player(16, 90)
     game_world.add_object(player, 1)
     game_world.addcollide_pairs('player:enemy',player,None)
     game_world.addcollide_pairs('player:ground',player,None)
     player_hp_bar = hpbar.Hpbar(player)
     game_world.add_object(player_hp_bar, 0)
-
+    #화면 깜빡임 추가
     flash_obj = screen_effects.load(DEFINES.SCW, DEFINES.SCH)
     game_world.add_object(flash_obj, 3)
 
