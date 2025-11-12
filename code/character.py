@@ -1,7 +1,7 @@
 from pico2d import *
 from sdl2 import SDL_KEYDOWN, SDLK_SPACE, SDLK_RIGHT, SDL_KEYUP, SDLK_LEFT, SDLK_a, SDLK_e, SDLK_d, SDLK_w,SDLK_s
 import os
-
+import screen_effects
 from sword import Sword
 from state_machine import StateMachine  # StateMachine 클래스가 import 되어야 함
 import hpbar
@@ -229,6 +229,7 @@ class Player:
         self.x = x
         self.y = y
 
+        self.hit_time = 0.0
         self.key_map = {'a': 0, 'd': 0}
         self.IDLE = Idle(self)
         self.RUN = Run(self)
@@ -262,6 +263,8 @@ class Player:
                 }
             })
     def update(self,dt):
+        if self.hit_time < 0.5:
+            self.hit_time+= dt
         # 🌟 3. 'dir'을 매 프레임 'key_map' 기준으로 계산
         new_dir = self.key_map['d'] - self.key_map['a']
 
@@ -313,8 +316,11 @@ class Player:
 
     def handle_collision(self, group, other):
         if group == 'player:enemy':  # 충돌처리가 왔는데 이게 boy:ball 이 원인이야
-            self.hp -= 0.1
-            print('플레이어가 몬스터에 충돌')
+            if self.hit_time >= 0.5 and self.hp > 0:
+                self.hit_time = 0
+                self.hp -= 10
+                screen_effects.trigger(0.1)
+                print('플레이어가 몬스터에 충돌')
         if group == 'player:ground':
             if self.state_machine.cur_state == self.JUMP and self.JUMP.vy < 0:
                 # '땅에 닿았다'는 이벤트 발생

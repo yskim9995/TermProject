@@ -1,7 +1,7 @@
 from pico2d import *
 import game_world
 import DEFINES
-
+import screen_effects
 from pico2d import SDL_BUTTON_LMASK, SDL_BUTTON_LEFT
 
 from enemy import *
@@ -13,10 +13,6 @@ from hpbar import Hpbar
 
 
 def collide(a, b):
-    """
-    두 객체 a와 b의 바운딩 박스가 겹치는지 확인합니다. (AABB 충돌 검사)
-    a와 b는 .get_bb() 함수가 있어야 합니다.
-    """
     left_a, bottom_a, right_a, top_a = a.get_bb()
     left_b, bottom_b, right_b, top_b = b.get_bb()
 
@@ -60,10 +56,6 @@ def handle_events():
         else:
             if player:
                 player.handle_event(event)
-
-
-
-
 def reset_world():
     bg =  Background()
     game_world.add_object(bg, 0)
@@ -74,15 +66,18 @@ def reset_world():
         game_world.addcollide_pairs('player:ground', None, long_grass_bar)
 
 
-    global player
+    global player , flash_effect
+
+
     player = Player(16, 90)
     game_world.add_object(player, 1)
     game_world.addcollide_pairs('player:enemy',player,None)
     game_world.addcollide_pairs('player:ground',player,None)
-
     player_hp_bar = hpbar.Hpbar(player)
-
     game_world.add_object(player_hp_bar, 0)
+
+    flash_obj = screen_effects.load(DEFINES.SCW, DEFINES.SCH)
+    game_world.add_object(flash_obj, 3)
 
 
     enemys = [Enemy() for i in range(4)]
