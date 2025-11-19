@@ -208,6 +208,16 @@ class Attack:
         # (main.py나 play_mode.py에서 add_collision_pair를 한 그룹 이름이어야 함)
         game_world.addcollide_pairs('player:enemy_attack', None, attack_hitbox)
 
+        # 히트박스와 같은 위치(약간 앞)에 이펙트 생성
+        offset_x = 40 * self.enemy.face_dir
+        effect_x = self.enemy.x + offset_x
+        effect_y = self.enemy.y
+
+        effect = AttackEffect(effect_x, effect_y, self.enemy.face_dir)
+
+        # 이펙트는 보통 캐릭터보다 앞(Layer 3)에 그려야 잘 보임
+        game_world.add_object(effect, 3)
+
     def draw(self):
         # (기존 draw 코드 유지)
         FRAME_WIDTH = 32
@@ -227,6 +237,48 @@ class Attack:
                 0, 'h', self.enemy.x, self.enemy.y,
                 self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
             )
+
+
+class AttackEffect:
+    images = []  # 🌟 이미지를 담을 리스트
+
+    def __init__(self, x, y, face_dir):
+        self.x = x
+        self.y = y
+        self.face_dir = face_dir
+        self.frame = 0
+        self.frame_time = 0
+
+        # 🌟 이미지가 로드되지 않았다면 리스트에 추가 (최초 1회만 실행)
+        if not AttackEffect.images:
+            # 파일 경로를 실제 파일명에 맞게 수정해주세요!
+            AttackEffect.images.append(load_image('resource/Sprites/Free Mushrooms/EnemyAttack/crossbow_a7.png'))  # 1번 프레임
+            AttackEffect.images.append(load_image('resource/Sprites/Free Mushrooms/EnemyAttack/crossbow_a8.png'))  # 2번 프레임
+
+    def update(self, dt):
+        self.frame_time += dt
+
+        # 0.05초마다 다음 장으로 넘어감
+        if self.frame_time >= 0.05:
+            self.frame += 1
+            self.frame_time = 0
+
+            # 2장(0, 1)을 다 보여줬으면(frame이 2가 되면) 객체 삭제
+            if self.frame >= 2:
+                game_world.remove_object(self)
+
+    def draw(self):
+        # 현재 프레임 번호(0 또는 1)에 해당하는 이미지 가져오기
+        img = AttackEffect.images[self.frame]
+
+        if self.face_dir == 1:
+            # 오른쪽: 그냥 그리기
+            img.draw(self.x, self.y)
+        else:
+            # 왼쪽: 좌우 반전('h')해서 그리기
+            # composite_draw(회전각, 반전, x, y, 너비, 높이)
+            img.composite_draw(0, 'h', self.x, self.y, img.w, img.h)
+
 
 class Hit:
     """
