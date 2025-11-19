@@ -82,6 +82,8 @@ def reset_world():
     game_world.add_object(player, 1)
     game_world.addcollide_pairs('player:enemy',player,None)
     game_world.addcollide_pairs('player:ground',player,None)
+    game_world.addcollide_pairs('player:enemy_attack',player,None)
+
     player_hp_bar = hpbar.Hpbar(player)
     game_world.add_object(player_hp_bar, 0)
     #화면 깜빡임 추가

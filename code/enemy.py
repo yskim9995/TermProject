@@ -3,10 +3,12 @@ import os
 from state_machine import StateMachine  # boy.py와 동일하게 상태 머신 사용
 import random
 import DEFINES
-
+import game_world
 import math
 import hpbar
-# --- 상태 정의 ---
+
+
+
 # 적의 상태에 따른 프레임 속도, 이동 속도 등을 정의
 ENEMY_SPEED_PPS = 150.0       # 초당 150 픽셀 (기존 5 * 30fps 가정)
 ANIMATION_SPEED_FPS = 10.0      # 초당 10 프레임
@@ -41,6 +43,48 @@ def reach_attack_range(e):
 
 def attack_done(e):
     return e[0] == 'ATTACK_DONE'
+
+
+class EnemyAttack:
+    def __init__(self, x, y, face_dir):
+        self.x = x
+        self.y = y
+        self.face_dir = face_dir
+        self.exist_time = 0.0
+        self.LIFETIME = 0.2  # 공격 판정이 유지되는 시간 (0.2초)
+
+        # 공격 범위 크기 (조절 가능)
+        self.width = 50
+        self.height = 50
+
+        # 데미지 (필요하다면)
+        self.damage = 10
+
+    def update(self, dt):
+        self.exist_time += dt
+        # 일정 시간이 지나면 스스로 사라짐
+        if self.exist_time >= self.LIFETIME:
+            game_world.remove_object(self)
+
+    def draw(self):
+        # 디버그 모드일 때만 빨간 네모로 공격 범위 표시
+        if DEFINES.bbvisible:
+            draw_rectangle(*self.get_bb())
+
+    def get_bb(self):
+        # 적이 보는 방향(face_dir)에 따라 공격 박스를 앞쪽에 생성
+        # face_dir이 1이면 오른쪽, -1이면 왼쪽
+        offset_x = 40 * self.face_dir
+
+        return (self.x + offset_x - self.width // 2, self.y - self.height // 2,
+                self.x + offset_x + self.width // 2, self.y + self.height // 2)
+
+    def handle_collision(self, group, other):
+        # 플레이어와 부딪히면, 자기 자신(공격박스)은 할 일을 다 했으니 사라짐
+        if group == 'player:enemy_attack':
+            game_world.remove_object(self)
+
+
 # -----------------
 # 적(Enemy)의 상태 클래스
 # -----------------
@@ -122,13 +166,15 @@ class Attack:
     def __init__(self, enemy):
         self.enemy = enemy
         self.attack_timer = 0.0
+        self.has_attacked = False  # 🌟 공격 판정을 만들었는지 체크하는 변수
 
     def enter(self, e):
-        print('Enemy Attacks!')
-        self.enemy.dir = 0  # 공격 중엔 정지
+        # print('Enemy Attacks!')
+        self.enemy.dir = 0
         self.enemy.frame = 0
         self.enemy.frame_time = 0.0
         self.attack_timer = 0.0
+        self.has_attacked = False  # 🌟 들어올 때 초기화
 
     def exit(self, e):
         pass
@@ -136,26 +182,37 @@ class Attack:
     def do(self, dt):
         self.enemy.frame_time += dt
 
-        # 공격 애니메이션 속도 (조금 빠르게)
+        # 애니메이션 진행 (예: 8프레임)
         if self.enemy.frame_time >= 0.1:
             self.enemy.frame_time = 0.0
-            # 🌟 공격 프레임이 8장이라고 가정
-            self.enemy.frame = (self.enemy.frame + 1)
+            self.enemy.frame += 1
 
-            # 공격 애니메이션이 끝나면 Idle이나 Trace로 돌아감
+            # 🌟 [중요] 특정 프레임(예: 4번째)에 공격 판정 생성
+            # has_attacked가 False일 때만 딱 한 번 생성
+            if self.enemy.frame == 4 and not self.has_attacked:
+                self.spawn_attack()
+                self.has_attacked = True  # 생성했다고 표시
+
+            # 애니메이션 종료 체크
             if self.enemy.frame >= 8:
                 self.enemy.frame = 0
-                self.enemy.state_machine.handle_state_event(('ATTACK_DONE', None))
+                self.enemy.state_machine.handle_state_event(('ATTA2CK_DONE', None))
 
-        # 🌟 (심화) 특정 프레임(예: 4번째)에서 실제 데미지 판정(Hitbox)을 생성할 수 있음
+    def spawn_attack(self):
+        # EnemyAttack 객체를 생성해서 game_world에 추가
+        # world[2] 레이어에 추가한다고 가정 (총알, 이펙트 레이어)
+        attack_hitbox = EnemyAttack(self.enemy.x, self.enemy.y, self.enemy.face_dir)
+        game_world.add_object(attack_hitbox, 2)
+
+        # 🌟 충돌 충돌 처리를 위해 game_world의 충돌 그룹에도 추가해야 함
+        # (main.py나 play_mode.py에서 add_collision_pair를 한 그룹 이름이어야 함)
+        game_world.addcollide_pairs('player:enemy_attack', None, attack_hitbox)
 
     def draw(self):
+        # (기존 draw 코드 유지)
         FRAME_WIDTH = 32
-        FRAME_HEIGHT = 16  # 공격 모션은 보통 큼
-        # 🌟 공격 스프라이트 위치 (이미지 파일을 확인해서 수정 필요)
-        # 여기서는 위에서 6번째 줄(Row 5)을 공격이라고 가정합니다.
-        BOTTOM_ROW = 32 * 2
-
+        FRAME_HEIGHT = 16
+        BOTTOM_ROW = 32 * 2  # 공격 모션 위치 확인 필요
         frame_x = self.enemy.frame * FRAME_WIDTH
 
         if self.enemy.face_dir == 1:
@@ -170,7 +227,6 @@ class Attack:
                 0, 'h', self.enemy.x, self.enemy.y,
                 self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
             )
-
 
 class Hit:
     """

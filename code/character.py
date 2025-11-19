@@ -431,3 +431,9 @@ class Player:
                 # 만약 HIT 상태에서도 땅에 닿으면 바로 걷게 하고 싶다면 아래 주석 해제
                 # if self.state_machine.cur_state == self.HIT:
                 #     self.state_machine.handle_state_event(('TIME_OUT', None))
+        if group == 'player:enemy_attack':
+            if self.hit_time >= 0.5:  # 무적 시간 체크
+                self.hit_time = 0
+                self.hp -= 10  # other.damage를 가져와도 됨
+                print("아얏! 몬스터 공격에 맞음")
+                self.state_machine.handle_state_event(('HIT', None))  # 플레이어도 HIT 상태로
