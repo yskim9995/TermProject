@@ -47,6 +47,67 @@ def attack_done(e):
 def dead(e): # 🌟 죽음 이벤트 정의
     return e[0] == 'DEAD'
 
+
+class DeathEffect:
+    images = []  # 🌟 여러 프레임의 이미지를 담을 리스트 (클래스 변수)
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.frame = 0
+        self.frame_time = 0.0
+        self.LIFETIME = 1.0  # 이펙트가 유지되는 전체 시간 (애니메이션 길이와 일치하도록 조정)
+
+        # 🌟 이펙트 이미지 로드 (최초 1회만)
+        if not DeathEffect.images:
+            # 🌟 [중요] 실제 이펙트 이미지 파일들을 로드해주세요!
+            # 예시: 4프레임짜리 폭발 이펙트 이미지 파일
+            try:
+                DeathEffect.images.append(load_image('resource/Sprites/Free Mushrooms/EnemyDieEffect/star_eff_1.png'))
+                DeathEffect.images.append(load_image('resource/Sprites/Free Mushrooms/EnemyDieEffect/star_eff_2.png'))
+                DeathEffect.images.append(load_image('resource/Sprites/Free Mushrooms/EnemyDieEffect/star_eff_3.png'))
+                DeathEffect.images.append(load_image('resource/Sprites/Free Mushrooms/EnemyDieEffect/star_eff_4.png'))
+                DeathEffect.images.append(load_image('resource/Sprites/Free Mushrooms/EnemyDieEffect/star_eff_5.png'))
+                DeathEffect.images.append(load_image('resource/Sprites/Free Mushrooms/EnemyDieEffect/star_eff_6.png'))
+                DeathEffect.images.append(load_image('resource/Sprites/Free Mushrooms/EnemyDieEffect/star_eff_7.png'))
+                DeathEffect.images.append(load_image('resource/Sprites/Free Mushrooms/EnemyDieEffect/star_eff_8.png'))
+
+                # 더 많은 프레임이 있다면 추가
+            except Exception as e:
+                print(f"DeathEffect 이미지 로드 실패: {e}. 임시 더미 이미지 사용.")
+                # 로드 실패 시 대체 이미지 (디버깅용)
+                DeathEffect.images.append(load_image('resource/debug_square.png'))
+                DeathEffect.images.append(load_image('resource/debug_square.png'))
+
+    def update(self, dt):
+        self.frame_time += dt
+
+        # 🌟 애니메이션 속도 조절 (프레임당 0.15초, 즉 약 6.6 FPS)
+        ANIMATION_SPEED = 0.10
+
+        if self.frame_time >= ANIMATION_SPEED:
+            self.frame += 1
+            self.frame_time = 0.0
+
+            # 모든 프레임을 다 재생했으면 (또는 일정 시간이 지났으면) 객체 삭제
+            # images 리스트의 길이를 사용
+            if self.frame >= len(DeathEffect.images):
+                game_world.remove_object(self)
+                return  # 삭제 후 더 이상 업데이트 불필요
+
+        # (선택 사항) 전체 재생 시간이 아니라 일정 시간 후에 사라지게 하려면
+        # self.LIFETIME -= dt
+        # if self.LIFETIME <= 0:
+        #    game_world.remove_object(self)
+
+    def draw(self):
+        # 🌟 현재 프레임의 이미지를 그립니다.
+        # 중심(self.x, self.y)에 맞게 그리기
+        if self.frame < len(DeathEffect.images):  # 프레임 범위 체크
+            img = DeathEffect.images[self.frame]
+            img.draw(self.x, self.y)
+
+
 class EnemyAttack:
     def __init__(self, x, y, face_dir):
         self.x = x
@@ -118,8 +179,14 @@ class Die:
 
             # 🌟 8프레임 애니메이션이 끝나면(0~7번 재생 후 8이 되면)
             if self.enemy.frame >= 8:
-                # 게임 월드에서 몬스터 삭제 (완전히 사라짐)
+                death_effect = DeathEffect(self.enemy.x, self.enemy.y)
+
+                # 이펙트는 보통 가장 위 레이어(레이어 3)에 그립니다.
+                game_world.add_object(death_effect, 3)
+
+                # 몬스터 객체는 이제 게임 월드에서 제거
                 game_world.remove_object(self.enemy)
+
 
                 # (선택 사항) 점수 추가 등 게임 로직 처리
                 # game_framework.score += 100
