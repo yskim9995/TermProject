@@ -409,14 +409,16 @@ class Player:
     def handle_collision(self, group, other):
         if group == 'player:enemy':
             # 무적 시간 체크 (연속 피격 방지)
-            if self.hit_time >= 0.5 and self.hp > 0:
-                self.hit_time = 0
-                self.hp -= 10
-                screen_effects.trigger(0.1)
-                print('플레이어가 몬스터에 충돌')
+            # if self.hit_time >= 0.5 and self.hp > 0:
+            #     self.hit_time = 0
+            #     self.hp -= 10
+            #     screen_effects.trigger(0.1)
+            #     print('플레이어가 몬스터에 충돌')
+            #
+            #     # 🌟 상태 머신에 HIT 이벤트 전송!
+            #     self.state_machine.handle_state_event(('HIT', None))
+            pass
 
-                # 🌟 상태 머신에 HIT 이벤트 전송!
-                self.state_machine.handle_state_event(('HIT', None))
 
         if group == 'player:ground':
             if self.vy <= 0:

@@ -91,34 +91,19 @@ class EnemyAttack:
 class Trace:
     """
     플레이어를 발견하고 쫓아가는 상태
-    머리 위에 ! 표시가 뜸
     """
 
     def __init__(self, enemy):
         self.enemy = enemy
-        # ! 표시 이미지 로드 (없으면 생략 가능하지만, 요청하셔서 추가)
-        # self.alert_image = load_image('resource/alert.png')
-        pass
 
     def enter(self, e):
-        print('Enemy Detected Player! Start Tracing')
+        # print('Enemy Detected Player! Start Tracing')
         self.enemy.frame = 0
         self.enemy.frame_time = 0.0
 
-    def exit(self, e):
-        pass
-
-    def do(self, dt):
-        self.enemy.frame_time += dt
-
-        # 1. 애니메이션 (달리기 모션 사용 - Patrol과 같은 Row 3 사용 가정)
-        if self.enemy.frame_time >= (1.0 / ANIMATION_SPEED_FPS):
-            self.enemy.frame_time = 0.0
-            self.enemy.frame = (self.enemy.frame + 1) % 8
-
-        # 2. 플레이어 방향으로 이동
+        # 🌟 [추가] 상태에 들어오자마자 플레이어를 바라보게 함
+        # 공격 후 복귀했을 때 등 뒤에 있는 플레이어를 즉시 쳐다보게 됨
         if self.enemy.target:
-            # 플레이어가 왼쪽에 있는지 오른쪽에 있는지 판단
             if self.enemy.target.x < self.enemy.x:
                 self.enemy.dir = -1
                 self.enemy.face_dir = -1
@@ -126,36 +111,66 @@ class Trace:
                 self.enemy.dir = 1
                 self.enemy.face_dir = 1
 
-            # 이동 적용
-            self.enemy.x += self.enemy.dir * RUN_SPEED_PPS * dt
+    def exit(self, e):
+        pass
 
-        # 3. 거리 체크는 Enemy.update에서 수행하여 이벤트를 보냄
+    def do(self, dt):
+        self.enemy.frame_time += dt
+
+        # 애니메이션 (달리기)
+        if self.enemy.frame_time >= (1.0 / ANIMATION_SPEED_FPS):
+            self.enemy.frame_time = 0.0
+            self.enemy.frame = (self.enemy.frame + 1) % 4  # 달리기 프레임 수에 맞게 조절
+
+        # 🌟 실시간 추격 로직
+        if self.enemy.target:
+            # 매 프레임마다 플레이어 방향 확인
+            if self.enemy.target.x < self.enemy.x:
+                self.enemy.dir = -1
+                self.enemy.face_dir = -1
+            else:
+                self.enemy.dir = 1
+                self.enemy.face_dir = 1
+
+            # 이동 (방향 * 속도 * 시간)
+            self.enemy.x += self.enemy.dir * RUN_SPEED_PPS * dt
 
     def draw(self):
         FRAME_WIDTH = 32
-        FRAME_HEIGHT = 16  # 달리기 동작은 키가 클 수 있음 (Patrol 참고)
-        BOTTOM_ROW = 32 * 3  # Patrol과 같은 스프라이트 라인 사용 (Run)
+        FRAME_HEIGHT = 30  # <-- Trace 상태의 실제 스프라이트 높이
+        BOTTOM_ROW = 32 * 4
+        start_pixel_x = 32 * 6
 
-        frame_x = self.enemy.frame * FRAME_WIDTH
+        # 🌟 높이 보정 계산 (기본 높이 16과 비교)
+        # 만약 Enemy 클래스의 draw_height가 16으로 고정되어 있다면 이 값이 필요
+        # 아니면 그냥 FRAME_HEIGHT - Enemy.bounding_box_height 등으로 계산해야 함
 
-        # 캐릭터 그리기
+        # 현재 코드의 Enemy.__init__을 보면 draw_height가 16으로 되어있습니다.
+        # 그래서 16을 기준으로 얼마나 커졌는지 계산해야 합니다.
+        base_height_for_offset = self.enemy.bounding_box_height  # Enemy 클래스의 바운딩 박스 높이 사용
+        y_offset = (FRAME_HEIGHT - base_height_for_offset) / 2 * self.enemy.scale[1]
+
+        frame_x = start_pixel_x + (self.enemy.frame * FRAME_WIDTH)
+
         if self.enemy.face_dir == 1:
             self.enemy.image.clip_draw(
                 frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
-                self.enemy.x, self.enemy.y,
-                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
+                self.enemy.x,
+                self.enemy.y + y_offset,
+                self.enemy.draw_width * self.enemy.scale[0],
+                # 🌟 [수정] draw_height 대신 FRAME_HEIGHT 사용하고 여기에 스케일 적용
+                FRAME_HEIGHT * self.enemy.scale[1]
             )
         else:
             self.enemy.image.clip_composite_draw(
                 frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
-                0, 'h', self.enemy.x, self.enemy.y,
-                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
+                0, 'h',
+                self.enemy.x,
+                self.enemy.y + y_offset,
+                self.enemy.draw_width * self.enemy.scale[0],
+                # 🌟 [수정] draw_height 대신 FRAME_HEIGHT 사용하고 여기에 스케일 적용
+                FRAME_HEIGHT * self.enemy.scale[1]
             )
-
-        # 🌟 [!] 느낌표 표시 (텍스트로 대체하거나 이미지를 그립니다)
-        # 폰트가 없다면 디버그용 네모라도 그립니다.
-        # draw_rectangle(self.enemy.x - 10, self.enemy.y + 40, self.enemy.x + 10, self.enemy.y + 60)
-        pass
 
 
 class Attack:
@@ -181,9 +196,9 @@ class Attack:
 
     def do(self, dt):
         self.enemy.frame_time += dt
-
+        ATTACK_FRAME_TIME = 0.2
         # 애니메이션 진행 (예: 8프레임)
-        if self.enemy.frame_time >= 0.1:
+        if self.enemy.frame_time >= ATTACK_FRAME_TIME:
             self.enemy.frame_time = 0.0
             self.enemy.frame += 1
 
@@ -196,7 +211,7 @@ class Attack:
             # 애니메이션 종료 체크
             if self.enemy.frame >= 8:
                 self.enemy.frame = 0
-                self.enemy.state_machine.handle_state_event(('ATTA2CK_DONE', None))
+                self.enemy.state_machine.handle_state_event(('ATTACK_DONE', None))
 
     def spawn_attack(self):
         # EnemyAttack 객체를 생성해서 game_world에 추가
@@ -577,6 +592,41 @@ class Enemy:
                 pass
 
         self.state_machine.update(dt)
+    def draw_hp(self):
+        # HP 바 크기 설정
+        BAR_WIDTH = 40
+        BAR_HEIGHT = 5
+
+        # HP 비율 계산 (0 ~ 1.0)
+        # hp가 0보다 작아지면 0으로 고정 (음수 길이 방지)
+        ratio = max(0, min(1, self.hp / self.max_hp))
+
+        # 위치 계산 (머리 위 50픽셀 정도)
+        # scale[1]을 곱해서 몬스터 크기에 맞춰 높이 조절
+        y_offset = 50 * self.scale[1]
+
+        # 바의 좌표 (좌, 하, 우, 상)
+        left = self.x - BAR_WIDTH // 2
+        bottom = self.y + y_offset
+        right = left + BAR_WIDTH
+        top = bottom + BAR_HEIGHT
+
+        # 1. 배경(빈 통) 그리기 (검은색 윤곽선 역할)
+        draw_rectangle(left, bottom, right, top)
+
+        # 2. 현재 체력 그리기 (내용물)
+        # 비율만큼 너비를 줄임
+        current_width = BAR_WIDTH * ratio
+
+        # 🌟 [팁] Pico2d 기본 도형은 색 채우기가 안 되고 선만 그려집니다.
+        # 색을 채우고 싶다면 '1픽셀짜리 빨간색 이미지'를 로드해서 stretch_draw 해야 합니다.
+        # 여기서는 윤곽선 사각형으로 '현재 체력'을 표시하겠습니다.
+        if ratio > 0:
+            draw_rectangle(left, bottom, left + current_width, top)
+
+            # (선택 사항) 잘 보이게 하기 위해 빗금이나 X 표시 등을 추가할 수 있음
+            # draw_line(left, bottom, left + current_width, top)
+
 
 
     def draw(self):
@@ -584,6 +634,8 @@ class Enemy:
         if DEFINES.bbvisible:
             draw_rectangle(*self.get_bb())
         self.state_machine.draw()
+        if self.hp < self.max_hp:  # (선택) 데미지를 입었을 때만 보이게 하려면 이 조건문 사용
+            self.draw_hp()
         # hpbar.draw(self.x, self.y, self.hp, self.max_hp, 70)
     def handle_event(self, event):
         # 이 함수는 main.py의 SDL 이벤트가 아니라,
@@ -593,10 +645,11 @@ class Enemy:
         if group == 'enemy:bullet':
             print('몬스터가 총알에 맞음!!!!!!!!!!!!!!!!!!!!!!!')
             self.state_machine.handle_state_event(('HIT', other))
-            # self.hp -= other.damage  # (Bullet/SwordEffect에 damage 변수가 있다면)
+            self.hp -= other.damage  # (Bullet/SwordEffect에 damage 변수가 있다면)
             # print(f"Enemy Hit! HP: {self.hp}")
         elif group == 'player:enemy':
-            print('몬스터가 플레이어에 맞음')
+            # print('몬스터가 플레이어에 맞음')
+            pass
         elif group == 'sword:enemy':
             pass
 
