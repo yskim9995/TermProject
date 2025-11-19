@@ -11,6 +11,7 @@ from grass import Grass
 from hpbar import Hpbar
 # Game object class here
 
+from portal import Portal
 
 def collide(a, b):
     left_a, bottom_a, right_a, top_a = a.get_bb()
@@ -75,7 +76,7 @@ def reset_world():
         game_world.addcollide_pairs('enemy:ground' , None , long_grass_bar)
 
 
-    global player , flash_effect
+    global player , flash_effect , current_portal
 
     # 플레이어
     player = Player(16, 90)
@@ -86,6 +87,13 @@ def reset_world():
 
     player_hp_bar = hpbar.Hpbar(player)
     game_world.add_object(player_hp_bar, 0)
+
+    current_portal = Portal(1500, 100)
+    game_world.add_object(current_portal, 1)  # Player와 같은 레이어
+
+    # 🌟 [추가] 충돌 쌍 등록 (플레이어 : 포탈)
+    game_world.addcollide_pairs('player:portal', player, current_portal)
+
     #화면 깜빡임 추가
     flash_obj = screen_effects.load(DEFINES.SCW, DEFINES.SCH)
     game_world.add_object(flash_obj, 3)
@@ -116,9 +124,13 @@ def reset_world():
 
 
 
-def update_world(d):
+def update_world(dt):
     game_world.update(dt)
     game_world.handle_collision()
+
+    if collide(player, current_portal):
+        print("플레이어가 포탈에 닿았습니다! 다음 스테이지로!")
+        reset_world()  # 🌟 월드를 리셋해서 (마치 새 스테이지인 것처럼) 시작
     pass
 
 
