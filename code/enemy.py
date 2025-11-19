@@ -44,6 +44,8 @@ def reach_attack_range(e):
 def attack_done(e):
     return e[0] == 'ATTACK_DONE'
 
+def dead(e): # 🌟 죽음 이벤트 정의
+    return e[0] == 'DEAD'
 
 class EnemyAttack:
     def __init__(self, x, y, face_dir):
@@ -88,6 +90,64 @@ class EnemyAttack:
 # -----------------
 # 적(Enemy)의 상태 클래스
 # -----------------
+class Die:
+    def __init__(self, enemy):
+        self.enemy = enemy
+
+    def enter(self, e):
+        print("Enemy Died")
+        self.enemy.frame = 0
+        self.enemy.frame_time = 0.0
+        self.enemy.dir = 0  # 죽을 땐 움직이지 않음
+
+        # (선택 사항) 죽는 소리 재생
+        # self.enemy.die_sound.play()
+
+    def exit(self, e):
+        pass
+
+    def do(self, dt):
+        self.enemy.frame_time += dt
+
+        # 죽는 모션 속도 (조금 천천히 0.15초)
+        DIE_SPEED = 0.15
+
+        if self.enemy.frame_time >= DIE_SPEED:
+            self.enemy.frame_time = 0.0
+            self.enemy.frame += 1
+
+            # 🌟 8프레임 애니메이션이 끝나면(0~7번 재생 후 8이 되면)
+            if self.enemy.frame >= 8:
+                # 게임 월드에서 몬스터 삭제 (완전히 사라짐)
+                game_world.remove_object(self.enemy)
+
+                # (선택 사항) 점수 추가 등 게임 로직 처리
+                # game_framework.score += 100
+
+    def draw(self):
+        FRAME_WIDTH = 32
+        FRAME_HEIGHT = 16  # 눕는 모션이라 높이가 낮을 수 있음 (이미지에 따라 조정)
+
+        # 🌟 [중요] 죽는 모션이 있는 줄(Row)을 설정하세요!
+        # 예: 맨 아랫줄이면 0, 위에서 두 번째면 32 * ?
+        # 여기선 32 * 5 (위에서 6번째 줄)라고 가정하겠습니다.
+        BOTTOM_ROW = 32 * 5
+
+        frame_x = self.enemy.frame * FRAME_WIDTH
+
+        if self.enemy.face_dir == 1:
+            self.enemy.image.clip_draw(
+                frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
+                self.enemy.x, self.enemy.y,
+                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
+            )
+        else:
+            self.enemy.image.clip_composite_draw(
+                frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
+                0, 'h', self.enemy.x, self.enemy.y,
+                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
+            )
+
 class Trace:
     """
     플레이어를 발견하고 쫓아가는 상태
@@ -470,7 +530,8 @@ class Patrol:
 class Enemy:
     # 🌟 Boy 클래스에서 배운 대로, 이미지는 클래스 변수로 한 번만 로드
     image = None
-
+    hp_bg_image = None
+    hp_fg_image = None
     def __init__(self, x= 400, y=150):
 
         self.x, self.y = random.randint(200, DEFINES.SCW), 500
@@ -505,37 +566,27 @@ class Enemy:
                 # 🌟 로드 실패 시 임시로 Boy 이미지 사용 (크래시 방지)
                 Enemy.image = load_image('resource/cha_test_15.png')
 
+        if not hasattr(Enemy, 'hp_bar_bg'):
+            # 파일 경로를 실제 이미지 파일명으로 수정하세요
+            Enemy.hp_bg_image = load_image('resource/Sprites/Free Mushrooms/btl_gage_hp_back.png')
+            Enemy.hp_fg_image = load_image('resource/Sprites/Free Mushrooms/btl_gage_hp.png')
+
         # 상태 객체 및 상태 머신 초기화
         self.IDLE = Idle(self)
         self.PATROL = Patrol(self)
         self.HIT = Hit(self)
         self.TRACE = Trace(self)
         self.ATTACK = Attack(self)
+        self.DIE = Die(self)
         self.state_machine = StateMachine(
             self.IDLE,
             {
-                self.IDLE: {
-                    time_out: self.PATROL,
-                    hit: self.HIT,
-                    detect_player: self.TRACE  # Idle 중에도 발견하면 추격
-                },
-                self.PATROL: {
-                    time_out: self.IDLE,
-                    hit: self.HIT,
-                    detect_player: self.TRACE  # Patrol 중에 발견하면 추격
-                },
-                self.TRACE: {
-                    lost_player: self.PATROL,  # 놓치면 다시 순찰
-                    reach_attack_range: self.ATTACK,  # 가까워지면 공격
-                    hit: self.HIT
-                },
-                self.ATTACK: {
-                    attack_done: self.TRACE,  # 공격 끝나면 다시 추격(또는 Idle)
-                    hit: self.HIT
-                },
-                self.HIT: {
-                    recover: self.TRACE  # 맞고 회복하면 다시 추격 (혹은 Idle)
-                }
+                self.IDLE: {time_out: self.PATROL, hit: self.HIT, detect_player: self.TRACE, dead: self.DIE},
+                self.PATROL: {time_out: self.IDLE, hit: self.HIT, detect_player: self.TRACE, dead: self.DIE},
+                self.TRACE: {lost_player: self.PATROL, reach_attack_range: self.ATTACK, hit: self.HIT, dead: self.DIE},
+                self.ATTACK: {attack_done: self.TRACE, hit: self.HIT, dead: self.DIE},
+                self.HIT: {recover: self.TRACE, dead: self.DIE},  # 🌟 맞다가 죽는 경우(Dead) 추가
+                self.DIE: {}  # 죽으면 아무 데도 못 감 (끝)
             }
         )
 
@@ -592,40 +643,37 @@ class Enemy:
                 pass
 
         self.state_machine.update(dt)
+
     def draw_hp(self):
-        # HP 바 크기 설정
-        BAR_WIDTH = 40
-        BAR_HEIGHT = 5
+        # 1. 이미지가 로드되지 않았으면 건너뜀 (안전장치)
+        if Enemy.hp_bg_image is None or Enemy.hp_fg_image is None:
+            return
 
-        # HP 비율 계산 (0 ~ 1.0)
-        # hp가 0보다 작아지면 0으로 고정 (음수 길이 방지)
-        ratio = max(0, min(1, self.hp / self.max_hp))
+        # 2. HP 비율 계산 (0.0 ~ 1.0)
+        # hp가 음수가 되면 0으로, max보다 크면 1로 고정
+        ratio = clamp(0, self.hp / self.max_hp, 1)
 
-        # 위치 계산 (머리 위 50픽셀 정도)
-        # scale[1]을 곱해서 몬스터 크기에 맞춰 높이 조절
-        y_offset = 50 * self.scale[1]
+        # 3. 위치 잡기 (머리 위)
+        # scale[1]을 곱해주는 이유: 몬스터가 커지면 HP바도 더 위에 떠야 하니까
+        y_offset = 20 * self.scale[1]
 
-        # 바의 좌표 (좌, 하, 우, 상)
-        left = self.x - BAR_WIDTH // 2
+        # 바의 전체 크기 (이미지 원본 크기 기준)
+        bar_w = 64
+        bar_h = 8
+
+        # 4. 그릴 좌표 계산 (좌측 하단 기준점)
+        # self.x는 몬스터의 중심이므로, 바의 절반 너비만큼 왼쪽으로 이동
+        left = self.x - (bar_w // 2)
         bottom = self.y + y_offset
-        right = left + BAR_WIDTH
-        top = bottom + BAR_HEIGHT
 
-        # 1. 배경(빈 통) 그리기 (검은색 윤곽선 역할)
-        draw_rectangle(left, bottom, right, top)
+        # 5. [배경] 그리기 (항상 전체 크기)
+        # draw_to_origin(x, y, w, h) -> x,y를 좌측 하단으로 잡고 그림
+        Enemy.hp_bg_image.draw_to_origin(left, bottom, bar_w, bar_h)
 
-        # 2. 현재 체력 그리기 (내용물)
-        # 비율만큼 너비를 줄임
-        current_width = BAR_WIDTH * ratio
-
-        # 🌟 [팁] Pico2d 기본 도형은 색 채우기가 안 되고 선만 그려집니다.
-        # 색을 채우고 싶다면 '1픽셀짜리 빨간색 이미지'를 로드해서 stretch_draw 해야 합니다.
-        # 여기서는 윤곽선 사각형으로 '현재 체력'을 표시하겠습니다.
-        if ratio > 0:
-            draw_rectangle(left, bottom, left + current_width, top)
-
-            # (선택 사항) 잘 보이게 하기 위해 빗금이나 X 표시 등을 추가할 수 있음
-            # draw_line(left, bottom, left + current_width, top)
+        # 6. [앞면] 그리기 (비율만큼 너비 축소)
+        # 높이(h)는 그대로 두고, 너비(w)에만 ratio를 곱함
+        current_w = bar_w * ratio
+        Enemy.hp_fg_image.draw_to_origin(left, bottom, current_w, bar_h)
 
 
 
@@ -644,8 +692,12 @@ class Enemy:
     def handle_collision(self, group, other):
         if group == 'enemy:bullet':
             print('몬스터가 총알에 맞음!!!!!!!!!!!!!!!!!!!!!!!')
-            self.state_machine.handle_state_event(('HIT', other))
             self.hp -= other.damage  # (Bullet/SwordEffect에 damage 변수가 있다면)
+
+            if self.hp > 0:
+                self.state_machine.handle_state_event(('HIT', other))
+            else :
+                self.state_machine.handle_state_event(('DEAD', None))
             # print(f"Enemy Hit! HP: {self.hp}")
         elif group == 'player:enemy':
             # print('몬스터가 플레이어에 맞음')
