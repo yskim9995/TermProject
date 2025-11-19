@@ -117,13 +117,18 @@ class Jump:
         self.Player.vy -= GRAVITY_PPS2 * dt  # dt 기반 중력
 
     def draw(self):
-        self.Player.IdleImages[self.Player.frame].rotate_draw(
-            self.Player.rotation,
-            self.Player.x, self.Player.y,
-            self.Player.width * self.Player.scale[0],
-            self.Player.height * self.Player.scale[1]
-        )
+        flip_str = ''  # 기본값 (오른쪽, 뒤집지 않음)
+        if self.Player.face_dir == -1:  # 왼쪽을 볼 때
+            flip_str = 'h'  # 'h' = horizontal flip (좌우 반전)
 
+        # 2. rotate_draw 대신 composite_draw 사용
+        self.Player.IdleImages[self.Player.frame].composite_draw(
+            self.Player.rotation,  # 1. 회전값 (radian)
+            flip_str,  # 2. 반전값 ('' or 'h')
+            self.Player.x, self.Player.y,  # 3. 위치 (x, y)
+            self.Player.width * self.Player.scale[0],  # 4. 너비 (width)
+            self.Player.height * self.Player.scale[1]  # 5. 높이 (height)
+        )
         # 🌟 요청에 따라 Jump 상태에서는 그리지 않도록 수정
         pass
 
