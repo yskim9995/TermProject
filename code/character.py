@@ -67,7 +67,8 @@ def stop_event(e):
 def ground_collision(e):
     return e[0] == 'GROUND_COLLISION'
 
-
+def hit_event(e):
+    return e[0] == 'HIT'
 
 
 # def right_down(e):
@@ -94,79 +95,123 @@ class Jump:
 
     def enter(self, e):
         self.Player.vy = JUMP_POWER_PPS
-        self.Player.jump_start_time = get_time()
         self.Player.frame = 0
         self.Player.frame_time = 0.0
 
     def exit(self, e):
         pass
 
-    def do(self,dt):
-        # 1. 애니메이션 (dt 기반)
+    def do(self, dt):
+        # 1. 애니메이션 (JumpImages는 4장)
         self.Player.frame_time += dt
         time_per_frame = 1.0 / ANIMATION_SPEED_FPS
+
+        # 점프 이미지는 보통 반복보다는 상승/하강에 따라 다르지만, 일단 반복재생
         if self.Player.frame_time >= time_per_frame:
-            self.Player.frame = (self.Player.frame + 1) % 8
+            self.Player.frame = (self.Player.frame + 1) % 4  # JumpImages 개수(4)
             self.Player.frame_time -= time_per_frame
 
-        # 2. 🌟 가로 이동 (수정됨)
+        # 2. 이동 로직
         self.Player.x += self.Player.dir * RUN_SPEED_PPS * dt
-
-        # 3. 🌟 세로 이동 (수정됨)
         self.Player.y += self.Player.vy * dt
-        self.Player.vy -= GRAVITY_PPS2 * dt  # dt 기반 중력
+        self.Player.vy -= GRAVITY_PPS2 * dt
+
+        self.Player.x = clamp(25, self.Player.x, DEFINES.SCW - 25)
 
     def draw(self):
-        flip_str = ''  # 기본값 (오른쪽, 뒤집지 않음)
-        if self.Player.face_dir == -1:  # 왼쪽을 볼 때
-            flip_str = 'h'  # 'h' = horizontal flip (좌우 반전)
+        flip_str = 'h' if self.Player.face_dir == -1 else ''
 
-        # 2. rotate_draw 대신 composite_draw 사용
-        self.Player.IdleImages[self.Player.frame].composite_draw(
-            self.Player.rotation,  # 1. 회전값 (radian)
-            flip_str,  # 2. 반전값 ('' or 'h')
-            self.Player.x, self.Player.y,  # 3. 위치 (x, y)
-            self.Player.width * self.Player.scale[0],  # 4. 너비 (width)
-            self.Player.height * self.Player.scale[1]  # 5. 높이 (height)
+        # 🌟 JumpImages 사용
+        self.Player.JumpImages[self.Player.frame].composite_draw(
+            self.Player.rotation, flip_str,
+            self.Player.x, self.Player.y,
+            self.Player.width * self.Player.scale[0],
+            self.Player.height * self.Player.scale[1]
         )
-        # 🌟 요청에 따라 Jump 상태에서는 그리지 않도록 수정
-        pass
 
 
 class Run:
     def __init__(self, Player):
         self.Player = Player
+
     def enter(self, e):
-        pass
+        self.Player.frame = 0
+        self.Player.frame_time = 0.0
+
     def exit(self, e):
-
         pass
 
-    def do(self,dt):
-        self.Player.x += self.Player.dir * RUN_SPEED_PPS * dt
+    def do(self, dt):
+        # 1. 애니메이션 (RunImages는 6장)
+        self.Player.frame_time += dt
+        time_per_frame = 1.0 / ANIMATION_SPEED_FPS
 
-        # 3. 세로 이동 (중력)
+        if self.Player.frame_time >= time_per_frame:
+            self.Player.frame = (self.Player.frame + 1) % 6  # RunImages 개수(6)
+            self.Player.frame_time -= time_per_frame
+
+        # 2. 이동 로직
+        self.Player.x += self.Player.dir * RUN_SPEED_PPS * dt
         self.Player.y += self.Player.vy * dt
         self.Player.vy -= GRAVITY_PPS2 * dt
 
-        # 4. 화면 경계 처리
         self.Player.x = clamp(25, self.Player.x, DEFINES.SCW - 25)
 
     def draw(self):
-        flip_str = ''  # 기본값 (오른쪽, 뒤집지 않음)
-        if self.Player.face_dir == -1:  # 왼쪽을 볼 때
-            flip_str = 'h'  # 'h' = horizontal flip (좌우 반전)
+        flip_str = 'h' if self.Player.face_dir == -1 else ''
 
-        # 2. rotate_draw 대신 composite_draw 사용
-        self.Player.IdleImages[self.Player.frame].composite_draw(
-            self.Player.rotation,  # 1. 회전값 (radian)
-            flip_str,  # 2. 반전값 ('' or 'h')
-            self.Player.x, self.Player.y,  # 3. 위치 (x, y)
-            self.Player.width * self.Player.scale[0],  # 4. 너비 (width)
-            self.Player.height * self.Player.scale[1]  # 5. 높이 (height)
+        # 🌟 RunImages 사용
+        self.Player.RunImages[self.Player.frame].composite_draw(
+            self.Player.rotation, flip_str,
+            self.Player.x, self.Player.y,
+            self.Player.width * self.Player.scale[0],
+            self.Player.height * self.Player.scale[1]
         )
 
+
+class Hit:
+    def __init__(self, Player):
+        self.Player = Player
+        self.timer = 0.0
+
+    def enter(self, e):
+        self.Player.frame = 0
+        self.Player.frame_time = 0.0
+        self.timer = 0.0
+        # 피격 시 약간 뒤로 밀려나는 효과 (선택 사항)
+        self.Player.vy = 200  # 살짝 뜸
+        self.Player.x -= self.Player.face_dir * 20  # 뒤로 밀림
+
+    def exit(self, e):
         pass
+
+    def do(self, dt):
+        self.timer += dt
+        self.Player.frame_time += dt
+
+        # 애니메이션 (HitImages는 2장)
+        if self.Player.frame_time >= 0.1:
+            self.Player.frame = (self.Player.frame + 1) % 2
+            self.Player.frame_time = 0
+
+        # 중력 적용 (밀려나는 느낌)
+        self.Player.y += self.Player.vy * dt
+        self.Player.vy -= GRAVITY_PPS2 * dt
+
+        # 0.5초 뒤에 다시 IDLE 상태로 복귀 (TIME_OUT 이벤트 발생)
+        if self.timer > 0.5:
+            self.Player.state_machine.handle_state_event(('TIME_OUT', None))
+
+    def draw(self):
+        flip_str = 'h' if self.Player.face_dir == -1 else ''
+
+        # 🌟 HitImages 사용
+        self.Player.HitImages[self.Player.frame].composite_draw(
+            self.Player.rotation, flip_str,
+            self.Player.x, self.Player.y,
+            self.Player.width * self.Player.scale[0],
+            self.Player.height * self.Player.scale[1]
+        )
 
 
 
@@ -194,7 +239,7 @@ class Idle:
         # 🌟 3. 누적 시간이 1프레임 시간(0.1초)을 넘었는지 확인
         if self.Player.frame_time >= time_per_frame:
             # 🌟 4. 프레임을 1 증가시키고 타이머 초기화 (넘은 시간은 유지)
-            self.Player.frame = (self.Player.frame + 1) % 8  # 8 프레임 반복
+            self.Player.frame = (self.Player.frame + 1) % 4  # 8 프레임 반복
             self.Player.frame_time -= time_per_frame
 
     def draw(self):
@@ -219,17 +264,42 @@ class Idle:
 class Player:
 
     def __init__(self, x, y):
-        self.IdleImages = [load_image('resource/Sprites/Character/char0.png'),
-                           load_image('resource/Sprites/Character/char1.png'),
-                           load_image('resource/Sprites/Character/char2.png'),
-                           load_image('resource/Sprites/Character/char3.png'),
-                           load_image('resource/Sprites/Character/char4.png'),
-                           load_image('resource/Sprites/Character/char5.png'),
-                           load_image('resource/Sprites/Character/char6.png'),
-                           load_image('resource/Sprites/Character/char7.png'),
-                           load_image('resource/Sprites/Character/char8.png'),
-                           load_image('resource/Sprites/Character/char9.png')]
+        # self.IdleImages = [load_image('resource/Sprites/Character/char0.png'),
+        #                    load_image('resource/Sprites/Character/char1.png'),
+        #                    load_image('resource/Sprites/Character/char2.png'),
+        #                    load_image('resource/Sprites/Character/char3.png'),
+        #                    load_image('resource/Sprites/Character/char4.png'),
+        #                    load_image('resource/Sprites/Character/char5.png'),
+        #                    load_image('resource/Sprites/Character/char6.png'),
+        #                    load_image('resource/Sprites/Character/char7.png'),
+        #                    load_image('resource/Sprites/Character/char8.png'),
+        #                    load_image('resource/Sprites/Character/char9.png')]
 
+
+        #아이들
+        self.IdleImages = [load_image('resource/Sprites/Character/player/player_idle1.png'),
+                           load_image('resource/Sprites/Character/player/player_idle2.png'),
+                           load_image('resource/Sprites/Character/player/player_idle3.png'),
+                           load_image('resource/Sprites/Character/player/player_idle4.png')]
+        #달리기
+        self.RunImages = [load_image('resource/Sprites/Character/player/player_run1.png'),
+                          load_image('resource/Sprites/Character/player/player_run2.png'),
+                          load_image('resource/Sprites/Character/player/player_run3.png'),
+                          load_image('resource/Sprites/Character/player/player_run4.png'),
+                          load_image('resource/Sprites/Character/player/player_run5.png'),
+                          load_image('resource/Sprites/Character/player/player_run6.png')]
+        #점프
+        self.JumpImages = [load_image('resource/Sprites/Character/player/player_jump1.png'),
+                           load_image('resource/Sprites/Character/player/player_jump2.png'),
+                           load_image('resource/Sprites/Character/player/player_jump3.png'),
+                           load_image('resource/Sprites/Character/player/player_jump4.png')]
+        #스턴
+        self.stunImages = [load_image('resource/Sprites/Character/player/player_sturn1.png'),
+                           load_image('resource/Sprites/Character/player/player_sturn2.png'),
+                           load_image('resource/Sprites/Character/player/player_sturn3.png')]
+
+        self.HitImages = [load_image('resource/Sprites/Character/player/player_hit1.png'),
+                          load_image('resource/Sprites/Character/player/player_hit2.png')]
         self.frame = 0
         self.face_dir = 1
         self.dir = 0
@@ -247,7 +317,7 @@ class Player:
         self.IDLE = Idle(self)
         self.RUN = Run(self)
         self.JUMP = Jump(self)
-
+        self.HIT = Hit(self)
 
         from gun import Gun
 
@@ -265,14 +335,23 @@ class Player:
             {
                 self.IDLE: {
                     keyDown_w: self.JUMP,
-                    move_event: self.RUN  # 'MOVE' 이벤트가 오면 RUN
+                    move_event: self.RUN,
+                    hit_event: self.HIT  # 피격 당하면 HIT로
                 },
                 self.RUN: {
                     keyDown_w: self.JUMP,
-                    stop_event: self.IDLE  # 'STOP' 이벤트가 오면 IDLE
+                    stop_event: self.IDLE,
+                    hit_event: self.HIT  # 달리다 맞아도 HIT로
                 },
                 self.JUMP: {
-                    ground_collision:self.IDLE
+                    ground_collision: self.IDLE,
+                    hit_event: self.HIT  # 점프 중 맞아도 HIT로
+                },
+                self.HIT: {
+                    time_out: self.IDLE,  # 일정 시간 지나면 IDLE로 복귀
+                    ground_collision: self.HIT  # 피격 중 땅에 닿으면 처리(선택)
+                    # 만약 피격 중 떨어져서 땅에 닿아도 계속 피격 모션 유지하려면 이렇게
+                    # 혹은 땅에 닿으면 바로 IDLE로 가려면 ground_collision: self.IDLE
                 }
             })
     def update(self,dt):
@@ -328,25 +407,27 @@ class Player:
         return self.x - self.width  , self.y - self.height , self.x + self.width , self.y + self.height
 
     def handle_collision(self, group, other):
-        if group == 'player:enemy':  # 충돌처리가 왔는데 이게 boy:ball 이 원인이야
+        if group == 'player:enemy':
+            # 무적 시간 체크 (연속 피격 방지)
             if self.hit_time >= 0.5 and self.hp > 0:
                 self.hit_time = 0
                 self.hp -= 10
                 screen_effects.trigger(0.1)
                 print('플레이어가 몬스터에 충돌')
+
+                # 🌟 상태 머신에 HIT 이벤트 전송!
+                self.state_machine.handle_state_event(('HIT', None))
+
         if group == 'player:ground':
             if self.vy <= 0:
-
-                # 2-2. 땅 위에 정확히 서도록 y 위치 보정
-                # (other는 'ground' 객체, [3]은 get_bb()의 top)
                 ground_top_y = other.get_bb()[3]
-                # (self.height / 2는 get_bb()가 중앙 기준일 때)
                 self.y = ground_top_y + (self.height / 2)
-
-                # 2-3. Y속도를 0으로 (낙하 멈춤)
                 self.vy = 0
 
-                # 2-4. 'JUMP' 상태였다면 IDLE/RUN으로
+                # JUMP 상태일 때만 착지 처리 (HIT 중에는 튕겨나가는 모션 유지 위해 제외 가능)
                 if self.state_machine.cur_state == self.JUMP:
                     self.state_machine.handle_state_event(('GROUND_COLLISION', None))
-        pass
+
+                # 만약 HIT 상태에서도 땅에 닿으면 바로 걷게 하고 싶다면 아래 주석 해제
+                # if self.state_machine.cur_state == self.HIT:
+                #     self.state_machine.handle_state_event(('TIME_OUT', None))

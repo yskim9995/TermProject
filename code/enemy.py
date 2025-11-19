@@ -2,6 +2,9 @@ from pico2d import *
 import os
 from state_machine import StateMachine  # boy.py와 동일하게 상태 머신 사용
 import random
+import DEFINES
+
+import math
 import hpbar
 # --- 상태 정의 ---
 # 적의 상태에 따른 프레임 속도, 이동 속도 등을 정의
@@ -12,7 +15,11 @@ IDLE_TIMER = 2.0
 PATROL_TIMER = 5.0
 HIT_DURATION = 0.5
 GRAVITY_PPS2 = 2000.0
-import DEFINES
+
+DETECT_RADIUS = 400.0  # 플레이어 감지 범위 (픽셀)
+ATTACK_RANGE = 50.0    # 공격 사정거리 (픽셀)
+RUN_SPEED_PPS = 200.0  # 추격 속도는 순찰보다 조금 빠르게
+
 # --- 상태 이벤트 체크 함수 ---
 # boy.py의 time_out과 동일한 역할
 def time_out(e):
@@ -23,9 +30,147 @@ def hit(e): # 🌟 'HIT' 이벤트 정의
 def recover(e): # 🌟 'RECOVER' 이벤트 정의
     return e[0] == 'RECOVER'
 
+def detect_player(e):
+    return e[0] == 'DETECT'
+
+def lost_player(e):
+    return e[0] == 'LOST'
+
+def reach_attack_range(e):
+    return e[0] == 'ATTACK_RANGE'
+
+def attack_done(e):
+    return e[0] == 'ATTACK_DONE'
 # -----------------
 # 적(Enemy)의 상태 클래스
 # -----------------
+class Trace:
+    """
+    플레이어를 발견하고 쫓아가는 상태
+    머리 위에 ! 표시가 뜸
+    """
+
+    def __init__(self, enemy):
+        self.enemy = enemy
+        # ! 표시 이미지 로드 (없으면 생략 가능하지만, 요청하셔서 추가)
+        # self.alert_image = load_image('resource/alert.png')
+        pass
+
+    def enter(self, e):
+        print('Enemy Detected Player! Start Tracing')
+        self.enemy.frame = 0
+        self.enemy.frame_time = 0.0
+
+    def exit(self, e):
+        pass
+
+    def do(self, dt):
+        self.enemy.frame_time += dt
+
+        # 1. 애니메이션 (달리기 모션 사용 - Patrol과 같은 Row 3 사용 가정)
+        if self.enemy.frame_time >= (1.0 / ANIMATION_SPEED_FPS):
+            self.enemy.frame_time = 0.0
+            self.enemy.frame = (self.enemy.frame + 1) % 8
+
+        # 2. 플레이어 방향으로 이동
+        if self.enemy.target:
+            # 플레이어가 왼쪽에 있는지 오른쪽에 있는지 판단
+            if self.enemy.target.x < self.enemy.x:
+                self.enemy.dir = -1
+                self.enemy.face_dir = -1
+            else:
+                self.enemy.dir = 1
+                self.enemy.face_dir = 1
+
+            # 이동 적용
+            self.enemy.x += self.enemy.dir * RUN_SPEED_PPS * dt
+
+        # 3. 거리 체크는 Enemy.update에서 수행하여 이벤트를 보냄
+
+    def draw(self):
+        FRAME_WIDTH = 32
+        FRAME_HEIGHT = 16  # 달리기 동작은 키가 클 수 있음 (Patrol 참고)
+        BOTTOM_ROW = 32 * 3  # Patrol과 같은 스프라이트 라인 사용 (Run)
+
+        frame_x = self.enemy.frame * FRAME_WIDTH
+
+        # 캐릭터 그리기
+        if self.enemy.face_dir == 1:
+            self.enemy.image.clip_draw(
+                frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
+                self.enemy.x, self.enemy.y,
+                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
+            )
+        else:
+            self.enemy.image.clip_composite_draw(
+                frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
+                0, 'h', self.enemy.x, self.enemy.y,
+                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
+            )
+
+        # 🌟 [!] 느낌표 표시 (텍스트로 대체하거나 이미지를 그립니다)
+        # 폰트가 없다면 디버그용 네모라도 그립니다.
+        # draw_rectangle(self.enemy.x - 10, self.enemy.y + 40, self.enemy.x + 10, self.enemy.y + 60)
+        pass
+
+
+class Attack:
+    """
+    제자리에서 멈춰 공격하는 상태
+    """
+
+    def __init__(self, enemy):
+        self.enemy = enemy
+        self.attack_timer = 0.0
+
+    def enter(self, e):
+        print('Enemy Attacks!')
+        self.enemy.dir = 0  # 공격 중엔 정지
+        self.enemy.frame = 0
+        self.enemy.frame_time = 0.0
+        self.attack_timer = 0.0
+
+    def exit(self, e):
+        pass
+
+    def do(self, dt):
+        self.enemy.frame_time += dt
+
+        # 공격 애니메이션 속도 (조금 빠르게)
+        if self.enemy.frame_time >= 0.1:
+            self.enemy.frame_time = 0.0
+            # 🌟 공격 프레임이 8장이라고 가정
+            self.enemy.frame = (self.enemy.frame + 1)
+
+            # 공격 애니메이션이 끝나면 Idle이나 Trace로 돌아감
+            if self.enemy.frame >= 8:
+                self.enemy.frame = 0
+                self.enemy.state_machine.handle_state_event(('ATTACK_DONE', None))
+
+        # 🌟 (심화) 특정 프레임(예: 4번째)에서 실제 데미지 판정(Hitbox)을 생성할 수 있음
+
+    def draw(self):
+        FRAME_WIDTH = 32
+        FRAME_HEIGHT = 16  # 공격 모션은 보통 큼
+        # 🌟 공격 스프라이트 위치 (이미지 파일을 확인해서 수정 필요)
+        # 여기서는 위에서 6번째 줄(Row 5)을 공격이라고 가정합니다.
+        BOTTOM_ROW = 32 * 2
+
+        frame_x = self.enemy.frame * FRAME_WIDTH
+
+        if self.enemy.face_dir == 1:
+            self.enemy.image.clip_draw(
+                frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
+                self.enemy.x, self.enemy.y,
+                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
+            )
+        else:
+            self.enemy.image.clip_composite_draw(
+                frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
+                0, 'h', self.enemy.x, self.enemy.y,
+                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
+            )
+
 
 class Hit:
     """
@@ -225,7 +370,8 @@ class Enemy:
 
         self.vy = 0.0
         self.is_grounded = True  # (처음엔 땅에 있다고 가정)
-        # 🌟 이미지 로드 (Boy.py와 동일한 'renderer' 오류 방지 패턴)
+
+        self.target = None#타겟 (플레이어) 초기화
         if Enemy.image is None:
             print("Loading Enemy image...")
             try:
@@ -240,14 +386,33 @@ class Enemy:
         self.IDLE = Idle(self)
         self.PATROL = Patrol(self)
         self.HIT = Hit(self)
-
+        self.TRACE = Trace(self)
+        self.ATTACK = Attack(self)
         self.state_machine = StateMachine(
-            self.IDLE,  # 시작 상태는 Idle
+            self.IDLE,
             {
-                # 이벤트: 대상 상태
-                self.IDLE: {time_out: self.PATROL , hit: self.HIT},
-                self.PATROL: {time_out: self.IDLE , hit: self.HIT},
-                self.HIT: {recover: self.IDLE}
+                self.IDLE: {
+                    time_out: self.PATROL,
+                    hit: self.HIT,
+                    detect_player: self.TRACE  # Idle 중에도 발견하면 추격
+                },
+                self.PATROL: {
+                    time_out: self.IDLE,
+                    hit: self.HIT,
+                    detect_player: self.TRACE  # Patrol 중에 발견하면 추격
+                },
+                self.TRACE: {
+                    lost_player: self.PATROL,  # 놓치면 다시 순찰
+                    reach_attack_range: self.ATTACK,  # 가까워지면 공격
+                    hit: self.HIT
+                },
+                self.ATTACK: {
+                    attack_done: self.TRACE,  # 공격 끝나면 다시 추격(또는 Idle)
+                    hit: self.HIT
+                },
+                self.HIT: {
+                    recover: self.TRACE  # 맞고 회복하면 다시 추격 (혹은 Idle)
+                }
             }
         )
 
@@ -272,7 +437,37 @@ class Enemy:
         # 2-3. (중요) 다음 프레임을 위해 "아직 땅이 아님"으로 가정
         self.is_grounded = False
 
-        # 3. 상태 머신 업데이트 (X축 이동, 애니메이션 처리)
+        # 🌟 1. 플레이어 찾기 (만약 target이 설정 안 되어 있다면 game_world에서 찾음)
+        if self.target is None:
+            # game_world.world[1]에 플레이어가 있다고 가정 (레이어 확인 필요)
+            # 안전하게 찾으려면 아래와 같이 순회할 수도 있음
+            import game_world
+            for obj in game_world.world[1]:
+                if hasattr(obj, 'key_map'):  # Player 객체인지 확인하는 꼼수 (class check가 더 좋음)
+                    self.target = obj
+                    break
+
+        # 🌟 2. 거리 계산 및 이벤트 발생 로직
+        if self.target:
+            distance = math.sqrt((self.x - self.target.x) ** 2 + (self.y - self.target.y) ** 2)
+
+            # 현재 상태 확인
+            cur_state = self.state_machine.cur_state
+
+            if cur_state in [self.IDLE, self.PATROL]:
+                if distance <= DETECT_RADIUS:
+                    self.state_machine.handle_state_event(('DETECT', None))
+
+            elif cur_state == self.TRACE:
+                if distance > DETECT_RADIUS * 1.5:  # 추격 포기 범위 (감지보다 좀 더 길게 잡음)
+                    self.state_machine.handle_state_event(('LOST', None))
+                elif distance <= ATTACK_RANGE:
+                    self.state_machine.handle_state_event(('ATTACK_RANGE', None))
+
+            elif cur_state == self.ATTACK:
+                # 공격 중에는 보통 거리 체크를 안하거나, 공격이 끝나길 기다림
+                pass
+
         self.state_machine.update(dt)
 
 
