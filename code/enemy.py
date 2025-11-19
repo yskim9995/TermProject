@@ -131,7 +131,7 @@ class Die:
         # 🌟 [중요] 죽는 모션이 있는 줄(Row)을 설정하세요!
         # 예: 맨 아랫줄이면 0, 위에서 두 번째면 32 * ?
         # 여기선 32 * 5 (위에서 6번째 줄)라고 가정하겠습니다.
-        BOTTOM_ROW = 32 * 5
+        BOTTOM_ROW = 32 * 0
 
         frame_x = self.enemy.frame * FRAME_WIDTH
 
