@@ -74,3 +74,7 @@ def handle_collision():
                 if collide(a,b):
                     a.handle_collision(group,b)
                     b.handle_collision(group,a)
+
+def clear_collision_pairs():
+    global collision_pairs
+    collision_pairs = {} # 딕셔너리 초기화

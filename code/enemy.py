@@ -601,7 +601,7 @@ class Enemy:
     hp_fg_image = None
     def __init__(self, x= 400, y=150):
 
-        self.x, self.y = random.randint(200, DEFINES.SCW), 500
+        self.x, self.y = random.randint(400, DEFINES.SCW), 500
 
         self.start_x = self.x  # 순찰 시작 위치
         self.frame = 0

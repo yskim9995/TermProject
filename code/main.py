@@ -57,6 +57,93 @@ def handle_events():
         else:
             if player:
                 player.handle_event(event)
+
+
+# 🌟 1. 움직이지 않는 배경/벽만 생성 (최초 1회)
+def init_static_objects():
+    global bg
+    bg = Background()
+    game_world.add_object(bg, 0)  # Layer 0: 배경
+
+    # 지형지물(Grass) 생성
+    # (기존 reset_world에 있던 벽 생성 코드 이동)
+    for i in range(4):
+        long_grass_bar = Grass(240 + 483 * i, 30, 16, 223, 161, 33, scale=3.0)
+        game_world.add_object(long_grass_bar, 0)  # Layer 0: 벽
+
+        # 🌟 [중요] 충돌 그룹 이름만 등록해둠 (대상 객체는 나중에 추가될 때 연결)
+        # 여기서는 벽(long_grass_bar)은 변하지 않으니 미리 충돌 그룹에 넣어둠
+        # 단, 'player:ground' 같은 쌍은 player가 생길 때 add_collision_pair 해야 함.
+        # 하지만 game_world 구조상, 그룹에 객체를 미리 넣어두는 방식이라면 여기서 추가.
+        # 보통 add_collision_pair(group, a, b) 방식이라면 여기서 할 필요 없음.
+        pass
+
+    for i in range(4):
+        long_grass_bar = Grass(723 + 483 * i, 200, 16, 223, 161, 33, scale=3.0)
+        game_world.add_object(long_grass_bar, 0)
+
+
+def reset_stage():
+    global player, current_portal
+
+    # 1. 움직이는 객체들(Layer 1 이상)만 비우기
+    # Layer 0 (배경, 벽)은 건드리지 않음!
+    game_world.world[1] = []
+    game_world.world[2] = []  # 총알 등이 있다면 비움
+    game_world.world[3] = []  # 이펙트 등이 있다면 비움
+
+    # 🌟🌟 2. 충돌 정보 싹 비우기 🌟🌟
+    # 이걸 안 하면 이전 스테이지 몬스터 정보가 남아서 에러 남
+    game_world.clear_collision_pairs()
+
+    # ------------------------------------------------------
+    # 3. 플레이어 생성 및 총 등록
+    # ------------------------------------------------------
+    player = Player(16, 90)
+    player.scale = [3.0, 3.0]
+    game_world.add_object(player, 1)
+    game_world.add_object(player.gun, 1)  # 플레이어가 가진 총 등록
+
+    # ------------------------------------------------------
+    # 4. 포탈 및 몬스터 생성
+    # ------------------------------------------------------
+    current_portal = Portal(DEFINES.SCW - 50, 100)
+    game_world.add_object(current_portal, 1)
+
+    enemys = [Enemy() for i in range(10)]
+    game_world.add_objects(enemys, 1)
+
+    # ------------------------------------------------------
+    # 5. UI 생성
+    # ------------------------------------------------------
+    player_hp_bar = hpbar.Hpbar(player)
+    game_world.add_object(player_hp_bar, 0)
+
+    # ------------------------------------------------------
+    # 6. 충돌 쌍 재등록 (여기가 제일 중요!)
+    # ------------------------------------------------------
+
+    # (1) Layer 0에 살아남아 있는 '벽(Grass)'들을 찾아서 다시 등록해야 함
+    # collision_pairs를 비웠기 때문에, 벽들도 다시 넣어줘야 충돌이 됨
+    if len(game_world.world) > 0:
+        for obj in game_world.world[0]:
+            if isinstance(obj, Grass):  # Grass 클래스인지 확인
+                game_world.addcollide_pairs('player:ground', player, obj)
+                for enemy in enemys:
+                    game_world.addcollide_pairs('enemy:ground', enemy, obj)
+
+    # (2) 플레이어 vs 몬스터
+    for enemy in enemys:
+        game_world.addcollide_pairs('player:enemy', player, enemy)
+        game_world.addcollide_pairs('enemy:bullet', enemy, None)
+        game_world.addcollide_pairs('sword:enemy', None, enemy)
+        game_world.addcollide_pairs('player:enemy_attack', player, None)
+        game_world.addcollide_pairs('enemy:ground', enemy, None)  # (몬스터 점프 등을 위해 필요 시)
+
+    # (3) 플레이어 vs 포탈
+    game_world.addcollide_pairs('player:portal', player, current_portal)
+
+
 def reset_world():
     bg =  Background()
     game_world.add_object(bg, 0)
@@ -128,9 +215,6 @@ def update_world(dt):
     game_world.update(dt)
     game_world.handle_collision()
 
-    if collide(player, current_portal):
-        print("플레이어가 포탈에 닿았습니다! 다음 스테이지로!")
-        reset_world()  # 🌟 월드를 리셋해서 (마치 새 스테이지인 것처럼) 시작
     pass
 
 
@@ -148,7 +232,11 @@ open_canvas(DEFINES.SCW,DEFINES.SCH)
 from character import Player
 from gun import Gun
 
-reset_world()
+# reset_world()
+
+init_static_objects()
+reset_stage()
+
 current_time = get_time()
 while running:
     # 1. Delta Time (dt) 계산
@@ -162,7 +250,9 @@ while running:
 
     # 🌟 3. '상태' 폴링 (Polling) 및 로직 처리
     # 마우스 왼쪽 버튼이 '눌려있는지' main에서 직접 확인
-
+    if collide(player, current_portal):
+        print("Next Stage!")
+        reset_stage()  # 🌟 벽은 그대로 두고 플레이어/몬스터만 리셋!
     if mouse_state:
         player.fire()
 
