@@ -17,6 +17,8 @@ class SwordEffect:
         self.spawn_time = get_time()
         self.frame = 0
         self.hit_enemies = [] # 이미 맞은 적 리스트
+        self.damage = 20
+
         DEFINES.Gunvisible = False
         game_world.addcollide_pairs('sword:enemy', self, None )
         # 🌟 이펙트가 그려질 위치 오프셋 (플레이어 중심 기준)
@@ -101,6 +103,7 @@ class SwordEffect:
                 print('검에 적 맞음(최초 1 회)')
                 self.hit_enemies.append(other)
                 if other.hp > 0:
+                    other.hp -= self.damage
                     other.state_machine.handle_state_event(('HIT', self.player))
 
 class Sword:

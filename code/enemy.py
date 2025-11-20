@@ -440,17 +440,30 @@ class Hit:
         self.enemy = enemy
 
     def enter(self, e):
-        print('Enemy Enters Hit')
-        # 1. 충돌 이벤트(e)에서 충돌한 객체(other)를 가져옴
-        other = e[1]
+        # print('Enemy Enters Hit')
 
-        # 2. 넉백 방향 결정 (other의 반대 방향)
-        #    other(플레이어/검기)가 왼쪽에 있으면 -> 오른쪽(1)으로 넉백
-        self.knockback_dir = 1 if self.enemy.x > other.x else -1
+        # 1. 충돌 객체 가져오기
+        # e가 ('HIT', object) 형태인지 확인
+        if len(e) > 1:
+            other = e[1]
+        else:
+            other = None
 
-        # 3. 타이머 및 프레임 초기화
+        # 2. 🌟 [안전한 넉백 방향 계산]
+        # 상대방(other)이 있고, x좌표도 가지고 있다면 -> 그 반대로 튕겨남
+        if other and hasattr(other, 'x'):
+            self.knockback_dir = 1 if self.enemy.x > other.x else -1
+        else:
+            # 상대방 정보가 없거나(None), x가 없으면(독/함정 등)
+            # 그냥 내가 보고 있는 방향의 반대로(뒤로) 밀려남
+            self.knockback_dir = -self.enemy.face_dir
+
+        # 3. 타이머 초기화 (기존 코드)
         self.start_time = get_time()
         self.enemy.frame = 0
+
+        # (선택 사항) 살짝 위로 뜸
+        self.enemy.vy = 100
 
     def exit(self, e):
         print('Enemy Exits Hit')
@@ -770,6 +783,13 @@ class Enemy:
             # print('몬스터가 플레이어에 맞음')
             pass
         elif group == 'sword:enemy':
+            # self.hp -= other.damage
+            print('소드에 맞음')
+
+            if self.hp > 0:
+                self.state_machine.handle_state_event(('HIT', other))
+            else:
+                self.state_machine.handle_state_event(('DEAD', None))
             pass
 
 
