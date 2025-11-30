@@ -404,7 +404,11 @@ class Player:
         # half_w = self.width / 2
         # half_h = self.height / 2
         # return self.x - half_w, self.y - half_h, self.x + half_w, self.y + half_h
-        return self.x - self.width  , self.y - self.height , self.x + self.width , self.y + self.height
+        half_w = (self.width * self.scale[0]) / 2
+        half_h = (self.height * self.scale[1]) / 2
+
+        # 중심(x,y)에서 절반만큼 빼고 더함
+        return self.x - half_w, self.y - half_h, self.x + half_w, self.y + half_h
 
     def handle_collision(self, group, other):
         if group == 'player:enemy':

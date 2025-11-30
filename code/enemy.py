@@ -21,6 +21,8 @@ GRAVITY_PPS2 = 2000.0
 DETECT_RADIUS = 400.0  # 플레이어 감지 범위 (픽셀)
 ATTACK_RANGE = 50.0    # 공격 사정거리 (픽셀)
 RUN_SPEED_PPS = 200.0  # 추격 속도는 순찰보다 조금 빠르게
+DETECT_Y_LIMIT = 50.0 # 🌟 [추가] 높이 차이가 50픽셀 이내일 때만 감지 (같은 층)
+
 
 # --- 상태 이벤트 체크 함수 ---
 # boy.py의 time_out과 동일한 역할
@@ -47,6 +49,11 @@ def attack_done(e):
 def dead(e): # 🌟 죽음 이벤트 정의
     return e[0] == 'DEAD'
 
+def give_up(e): # 🌟 추격 포기 이벤트
+    return e[0] == 'GIVE_UP'
+
+def arrived(e): # 🌟 집에 도착 이벤트
+    return e[0] == 'ARRIVED'
 
 class DeathEffect:
     images = []  # 🌟 여러 프레임의 이미지를 담을 리스트 (클래스 변수)
@@ -215,6 +222,77 @@ class Die:
                 self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
             )
 
+
+class Return:
+    """
+    원래 스폰 위치(start_x)로 돌아가는 상태
+    (모션은 Patrol과 동일하게 걷는 모션 사용)
+    """
+
+    def __init__(self, enemy):
+        self.enemy = enemy
+
+    def enter(self, e):
+        self.enemy.frame = 0
+        self.enemy.frame_time = 0.0
+        # 집 방향으로 방향 설정
+        if self.enemy.x < self.enemy.start_x:
+            self.enemy.dir = 1
+            self.enemy.face_dir = 1
+        else:
+            self.enemy.dir = -1
+            self.enemy.face_dir = -1
+
+    def exit(self, e):
+        pass
+
+    def do(self, dt):
+        self.enemy.frame_time += dt
+
+        # 애니메이션 속도 (Patrol과 동일하게)
+        if self.enemy.frame_time >= (1.0 / ANIMATION_SPEED_FPS):
+            self.enemy.frame_time = 0.0
+            self.enemy.frame = (self.enemy.frame + 1) % 8
+
+        # 이동 로직
+        self.enemy.x += self.enemy.dir * RUN_SPEED_PPS * dt
+
+        # 도착 체크
+        if abs(self.enemy.x - self.enemy.start_x) < 10:
+            self.enemy.x = self.enemy.start_x
+            self.enemy.state_machine.handle_state_event(('ARRIVED', None))
+
+    def draw(self):
+        # 🌟 [Patrol 스타일로 변경]
+        FRAME_WIDTH = 32
+        FRAME_HEIGHT = 16  # 기본 높이 16
+        BOTTOM_ROW = 32 * 3
+
+        # 🌟 특정 프레임에서만 키가 커지는 Patrol 로직 적용
+        if self.enemy.frame >= 4 and self.enemy.frame <= 6:
+            FRAME_HEIGHT = 30
+
+        frame_x = self.enemy.frame * FRAME_WIDTH
+
+        # 🌟 높이 보정 (키가 커질 때 발이 땅에 박히지 않게 위로 올림)
+        # (현재 높이 - 기본 높이) / 2 * 스케일
+        y_offset = (FRAME_HEIGHT - 16) / 2 * self.enemy.scale[1]
+
+        if self.enemy.face_dir == 1:
+            self.enemy.image.clip_draw(
+                frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
+                self.enemy.x, self.enemy.y + y_offset,  # y 보정 적용
+                              self.enemy.draw_width * self.enemy.scale[0],
+                              FRAME_HEIGHT * self.enemy.scale[1]  # 현재 높이 적용
+            )
+        else:
+            self.enemy.image.clip_composite_draw(
+                frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
+                0, 'h',
+                self.enemy.x, self.enemy.y + y_offset,  # y 보정 적용
+                              self.enemy.draw_width * self.enemy.scale[0],
+                              FRAME_HEIGHT * self.enemy.scale[1]  # 현재 높이 적용
+            )
 class Trace:
     """
     플레이어를 발견하고 쫓아가는 상태
@@ -222,12 +300,12 @@ class Trace:
 
     def __init__(self, enemy):
         self.enemy = enemy
-
+        self.trace_timer = 0.0
     def enter(self, e):
         # print('Enemy Detected Player! Start Tracing')
         self.enemy.frame = 0
         self.enemy.frame_time = 0.0
-
+        self.trace_timer = 0.0
         # 🌟 [추가] 상태에 들어오자마자 플레이어를 바라보게 함
         # 공격 후 복귀했을 때 등 뒤에 있는 플레이어를 즉시 쳐다보게 됨
         if self.enemy.target:
@@ -244,23 +322,49 @@ class Trace:
     def do(self, dt):
         self.enemy.frame_time += dt
 
-        # 애니메이션 (달리기)
         if self.enemy.frame_time >= (1.0 / ANIMATION_SPEED_FPS):
             self.enemy.frame_time = 0.0
-            self.enemy.frame = (self.enemy.frame + 1) % 4  # 달리기 프레임 수에 맞게 조절
+        # 프레임 증가 (8은 달리기 모션의 전체 프레임 수)
+            self.enemy.frame = (self.enemy.frame + 1) % 4
+        self.trace_timer += dt
 
-        # 🌟 실시간 추격 로직
+
+        if self.trace_timer > 3.0:  # 3초 동안 못 잡으면
+            print("놓쳤다! 집으로 가자.")
+            self.enemy.state_machine.handle_state_event(('GIVE_UP', None))
+            return
         if self.enemy.target:
-            # 매 프레임마다 플레이어 방향 확인
-            if self.enemy.target.x < self.enemy.x:
-                self.enemy.dir = -1
-                self.enemy.face_dir = -1
-            else:
-                self.enemy.dir = 1
-                self.enemy.face_dir = 1
-
-            # 이동 (방향 * 속도 * 시간)
+            self.enemy.dir = 1 if self.enemy.target.x > self.enemy.x else -1
+            self.enemy.face_dir = self.enemy.dir
             self.enemy.x += self.enemy.dir * RUN_SPEED_PPS * dt
+
+            # 3. 거리 체크 (공격/놓침)
+            import math
+            distance = math.sqrt((self.enemy.x - self.enemy.target.x) ** 2 + (self.enemy.y - self.enemy.target.y) ** 2)
+
+            if distance <= ATTACK_RANGE:
+                self.enemy.state_machine.handle_state_event(('ATTACK_RANGE', None))
+            elif distance > DETECT_RADIUS * 1.5:
+                self.enemy.state_machine.handle_state_event(('LOST', None))
+
+        #혹시모르니
+        # # 애니메이션 (달리기)
+        # if self.enemy.frame_time >= (1.0 / ANIMATION_SPEED_FPS):
+        #     self.enemy.frame_time = 0.0
+        #     self.enemy.frame = (self.enemy.frame + 1) % 4  # 달리기 프레임 수에 맞게 조절
+        #
+        # # 🌟 실시간 추격 로직
+        # if self.enemy.target:
+        #     # 매 프레임마다 플레이어 방향 확인
+        #     if self.enemy.target.x < self.enemy.x:
+        #         self.enemy.dir = -1
+        #         self.enemy.face_dir = -1
+        #     else:
+        #         self.enemy.dir = 1
+        #         self.enemy.face_dir = 1
+        #
+        #     # 이동 (방향 * 속도 * 시간)
+        #     self.enemy.x += self.enemy.dir * RUN_SPEED_PPS * dt
 
     def draw(self):
         FRAME_WIDTH = 32
@@ -552,7 +656,7 @@ class Idle:
 class Patrol:
     def __init__(self, enemy):
         self.enemy = enemy
-        self.patrol_range = (enemy.start_x - 200, enemy.start_x + 200)
+        self.patrol_range = (enemy.start_x - 100, enemy.start_x + 100)
 
     def enter(self, e):
         self.enemy.dir = 1
@@ -658,15 +762,30 @@ class Enemy:
         self.TRACE = Trace(self)
         self.ATTACK = Attack(self)
         self.DIE = Die(self)
+        self.RETURN = Return(self)
         self.state_machine = StateMachine(
             self.IDLE,
             {
                 self.IDLE: {time_out: self.PATROL, hit: self.HIT, detect_player: self.TRACE, dead: self.DIE},
                 self.PATROL: {time_out: self.IDLE, hit: self.HIT, detect_player: self.TRACE, dead: self.DIE},
-                self.TRACE: {lost_player: self.PATROL, reach_attack_range: self.ATTACK, hit: self.HIT, dead: self.DIE},
+                self.TRACE: {
+                    lost_player: self.PATROL,  # 그냥 놓치면 제자리 순찰
+                    give_up: self.RETURN,  # 🌟 시간 초과면 집으로 복귀!
+                    reach_attack_range: self.ATTACK,
+                    hit: self.HIT,
+                    dead: self.DIE
+                },
                 self.ATTACK: {attack_done: self.TRACE, hit: self.HIT, dead: self.DIE},
-                self.HIT: {recover: self.TRACE, dead: self.DIE},  # 🌟 맞다가 죽는 경우(Dead) 추가
-                self.DIE: {}  # 죽으면 아무 데도 못 감 (끝)
+                self.HIT: {recover: self.TRACE, dead: self.DIE},
+                self.DIE: {},
+
+                # 🌟 Return 상태 연결
+                self.RETURN: {
+                    arrived: self.PATROL,  # 🌟 도착하면 다시 순찰 시작
+                    detect_player: self.TRACE,  # 복귀 중에도 플레이어 보면 다시 추격
+                    hit: self.HIT,
+                    dead: self.DIE
+                }
             }
         )
 
@@ -705,18 +824,27 @@ class Enemy:
         if self.target:
             distance = math.sqrt((self.x - self.target.x) ** 2 + (self.y - self.target.y) ** 2)
 
-            # 현재 상태 확인
+            dist_y = abs(self.y - self.target.y)
+
             cur_state = self.state_machine.cur_state
 
-            if cur_state in [self.IDLE, self.PATROL]:
-                if distance <= DETECT_RADIUS:
+            # --- IDLE / PATROL 상태일 때 감지 로직 ---
+            if cur_state in [self.IDLE, self.PATROL, self.RETURN]:
+                # 거리도 가깝고(AND) 높이도 비슷해야(AND) 감지!
+                if distance <= DETECT_RADIUS and dist_y <= DETECT_Y_LIMIT:
                     self.state_machine.handle_state_event(('DETECT', None))
 
+            # --- TRACE(추격) 상태일 때 포기 로직 ---
             elif cur_state == self.TRACE:
-                if distance > DETECT_RADIUS * 1.5:  # 추격 포기 범위 (감지보다 좀 더 길게 잡음)
+                # 거리가 너무 멀어지거나(OR) 층이 너무 달라지면(OR) 놓침
+                # 추격 중에는 조금 더 관대하게 봐줄 수도 있음 (예: 점프 고려해서 Y Limit * 2)
+                if distance > DETECT_RADIUS * 1.5 or dist_y > DETECT_Y_LIMIT * 2:
                     self.state_machine.handle_state_event(('LOST', None))
+
                 elif distance <= ATTACK_RANGE:
-                    self.state_machine.handle_state_event(('ATTACK_RANGE', None))
+                    # 공격할 때도 높이가 맞아야 공격하게 하려면 여기에 dist_y 체크 추가
+                    if dist_y <= 30:  # 높이가 거의 같을 때만 공격
+                        self.state_machine.handle_state_event(('ATTACK_RANGE', None))
 
             elif cur_state == self.ATTACK:
                 # 공격 중에는 보통 거리 체크를 안하거나, 공격이 끝나길 기다림
