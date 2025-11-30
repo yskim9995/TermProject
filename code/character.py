@@ -3,6 +3,7 @@ from sdl2 import SDL_KEYDOWN, SDLK_SPACE, SDLK_RIGHT, SDL_KEYUP, SDLK_LEFT, SDLK
 import os
 import screen_effects
 from sword import Sword
+from railgun import Railgun
 from state_machine import StateMachine  # StateMachine 클래스가 import 되어야 함
 import hpbar
 
@@ -320,10 +321,10 @@ class Player:
         self.HIT = Hit(self)
 
         from gun import Gun
-
         self.gun = Gun(self.x, self.y, self)
         self.sword = Sword(self)
-        # 하드코딩된 16 대신 로드한 이미지의 실제 크기를 사용
+        self.railgun = Railgun(self.x ,self.y, self)
+
         self.width = self.IdleImages[0].w
         self.height = self.IdleImages[0].h
 
