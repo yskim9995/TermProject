@@ -12,7 +12,6 @@ from hpbar import Hpbar
 # Game object class here
 
 from portal import Portal
-import random
 
 def collide(a, b):
     left_a, bottom_a, right_a, top_a = a.get_bb()
@@ -79,9 +78,9 @@ def init_static_objects():
         # 보통 add_collision_pair(group, a, b) 방식이라면 여기서 할 필요 없음.
         pass
 
-    # for i in range(4):
-    #     long_grass_bar = Grass(723 + 483 * i, 200, 16, 223, 161, 33, scale=3.0)
-    #     game_world.add_object(long_grass_bar, 0)
+    for i in range(4):
+        long_grass_bar = Grass(723 + 483 * i, 200, 16, 223, 161, 33, scale=3.0)
+        game_world.add_object(long_grass_bar, 0)
 
 
 def reset_stage():
@@ -89,64 +88,14 @@ def reset_stage():
 
     # 1. 움직이는 객체들(Layer 1 이상)만 비우기
     # Layer 0 (배경, 벽)은 건드리지 않음!
-    if len(game_world.world) > 1:
-        game_world.world[1] = []
-    if len(game_world.world) > 2:
-        game_world.world[2] = []
-    if len(game_world.world) > 3:
-        game_world.world[3] = []
+    game_world.world[1] = []
+    game_world.world[2] = []  # 총알 등이 있다면 비움
+    game_world.world[3] = []  # 이펙트 등이 있다면 비움
 
     # 🌟🌟 2. 충돌 정보 싹 비우기 🌟🌟
     # 이걸 안 하면 이전 스테이지 몬스터 정보가 남아서 에러 남
     game_world.clear_collision_pairs()
 
-    generated_platforms = []
-
-    # 발판의 대략적인 크기 (스케일 3.0 고려)
-    # Grass 생성자: Grass(x, y, 16, 223, 161, 33, scale=3.0)
-    # 실제 너비 = 161 * 3.0 = 483, 실제 높이 = 33 * 3.0 = 99
-    PLATFORM_WIDTH = 400
-    PLATFORM_HEIGHT = 99
-
-    # 🌟 발판 사이에 최소한 이만큼은 떨어져야 한다! (간격)
-    MARGIN = 80
-
-    attempts = 0
-    max_attempts = 100  # 100번 시도해도 자리 없으면 포기
-
-    # 목표는 5개지만, 공간이 좁으면 들어가는 만큼만 넣음
-    while len(generated_platforms) < 5 and attempts < max_attempts:
-        attempts += 1
-
-        # 1. 랜덤 위치 뽑기
-        # 발판이 맵 밖으로 튀어나가지 않게 범위를 살짝 줄임
-        rx = random.randint(200, 1600)
-        ry = random.randint(200, 300)
-
-        # 2. 기존 발판들과 거리 체크 (충돌 + 간격)
-        is_too_close = False
-        for p in generated_platforms:
-            # 기존 발판 p의 좌표
-            px, py = p.x, p.y
-
-            # 🌟 [핵심] 두 발판 사이의 거리(절댓값)가 (발판크기 + 마진)보다 작으면 겹친 거임
-            # X축 거리 체크: (내 너비 절반 + 쟤 너비 절반 + 여유공간)
-            # 간단하게: 두 중심점 사이의 거리가 '너비 + 여유'보다 작으면 겹침
-            if abs(rx - px) < (PLATFORM_WIDTH + MARGIN) and \
-                    abs(ry - py) < (PLATFORM_HEIGHT + MARGIN):
-                is_too_close = True
-                break  # 겹침 발생! 다시 뽑자
-
-        # 3. 통과했으면 생성
-        if not is_too_close:
-            new_grass = Grass(rx, ry, 16, 223, 161, 33, scale=3.0)
-            game_world.add_object(new_grass, 1)
-            generated_platforms.append(new_grass)
-            # print(f"발판 {len(generated_platforms)} 생성 완료: {rx}, {ry}")
-
-    # (디버그용) 만약 5개를 다 못 채웠으면 알려줌
-    if len(generated_platforms) < 5:
-        print(f"공간 부족으로 발판이 {len(generated_platforms)}개만 생성되었습니다.")
     # ------------------------------------------------------
     # 3. 플레이어 생성 및 총 등록
     # ------------------------------------------------------
@@ -173,38 +122,25 @@ def reset_stage():
     # ------------------------------------------------------
     # 6. 충돌 쌍 재등록 (여기가 제일 중요!)
     # ------------------------------------------------------
-    all_grounds = []
+
+    # (1) Layer 0에 살아남아 있는 '벽(Grass)'들을 찾아서 다시 등록해야 함
+    # collision_pairs를 비웠기 때문에, 벽들도 다시 넣어줘야 충돌이 됨
     if len(game_world.world) > 0:
-        all_grounds += [obj for obj in game_world.world[0] if isinstance(obj, Grass)]
-    if len(game_world.world) > 1:
-        all_grounds += [obj for obj in game_world.world[1] if isinstance(obj, Grass)]
+        for obj in game_world.world[0]:
+            if isinstance(obj, Grass):  # Grass 클래스인지 확인
+                game_world.addcollide_pairs('player:ground', player, obj)
+                for enemy in enemys:
+                    game_world.addcollide_pairs('enemy:ground', enemy, obj)
 
-    # 🌟 [디버깅] 실제로 바닥이 몇 개 잡혔는지 확인해보세요 (콘솔 출력)
-    print(f"충돌 등록된 바닥 개수: {len(all_grounds)}")
-
-    # 2) 'player:ground' 그룹 등록 (핵심 수정!)
-    # 플레이어는 딱 1번만 등록합니다 (그룹의 A 리스트)
-    game_world.addcollide_pairs('player:ground', player, None)
-
-    # 바닥들은 루프 돌면서 등록합니다 (그룹의 B 리스트)
-    for ground in all_grounds:
-        game_world.addcollide_pairs('player:ground', None, ground)
-
-        # 몬스터와 바닥 충돌도 마찬가지로 등록
-        for enemy in enemys:
-            game_world.addcollide_pairs('enemy:ground', enemy, ground)
-
-    # 3) 나머지 충돌 등록 (기존과 동일)
+    # (2) 플레이어 vs 몬스터
     for enemy in enemys:
         game_world.addcollide_pairs('player:enemy', player, enemy)
         game_world.addcollide_pairs('enemy:bullet', enemy, None)
         game_world.addcollide_pairs('sword:enemy', None, enemy)
         game_world.addcollide_pairs('player:enemy_attack', player, None)
+        game_world.addcollide_pairs('enemy:ground', enemy, None)  # (몬스터 점프 등을 위해 필요 시)
 
-        # 🌟 몬스터도 바닥에 서야 하므로, 몬스터 그룹(A) 등록
-        game_world.addcollide_pairs('enemy:ground', enemy, None)
-
-    # 4) 포탈
+    # (3) 플레이어 vs 포탈
     game_world.addcollide_pairs('player:portal', player, current_portal)
 
 
