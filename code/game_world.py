@@ -28,6 +28,7 @@ def render():
         for o in layer:
             o.draw()
 
+
 def clear():
     global world
 

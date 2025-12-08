@@ -47,8 +47,12 @@ class Gun:
         game_world.add_object(effect, 2)
 
     def _calc_angle_to_mouse(self):
-        dx = DEFINES.mouseX - self.x
-        dy = DEFINES.mouseY - self.y
+        sx, sy = server.world_to_screen(self.x, self.y)
+
+        # 2. 마우스(Screen) - 내 위치(Screen) 비교
+        dx = DEFINES.mouseX - sx
+        dy = DEFINES.mouseY - sy
+
         return math.atan2(dy, dx)
 
     def update(self, dt):
@@ -80,7 +84,7 @@ class Gun:
             sx, sy = server.world_to_screen(self.x, self.y)
 
             self.image.rotate_draw(self.rotation, sx, sy,
-                                   selfd.width * self.scale[0],
+                                   self.width * self.scale[0],
                                    self.height * self.scale[1])
 
 # 🌟🌟 [수정된 클래스] 여기서 에러가 났었습니다! 🌟🌟
@@ -121,7 +125,10 @@ class ShootEffect:
         # 🌟🌟 [여기가 핵심] self.image가 아니라 ShootEffect.images[...] 를 써야 합니다! 🌟🌟
         img = ShootEffect.images[self.frame]
 
-        img.rotate_draw(self.angle, self.x, self.y, 32, 32 * self.scale_y)
+        sx, sy = server.world_to_screen(self.x, self.y)
+
+        # 변환된 sx, sy를 사용하여 그립니다.
+        img.rotate_draw(self.angle, sx, sy, 32, 32 * self.scale_y)
 
     def get_bb(self):
         return 0, 0, 0, 0

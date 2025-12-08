@@ -6,6 +6,7 @@ import DEFINES
 import game_world
 import math
 import hpbar
+import server
 
 
 
@@ -108,11 +109,12 @@ class DeathEffect:
         #    game_world.remove_object(self)
 
     def draw(self):
-        # 🌟 현재 프레임의 이미지를 그립니다.
-        # 중심(self.x, self.y)에 맞게 그리기
-        if self.frame < len(DeathEffect.images):  # 프레임 범위 체크
+        if self.frame < len(DeathEffect.images):
             img = DeathEffect.images[self.frame]
-            img.draw(self.x, self.y)
+
+            # 🌟 [수정] 화면 좌표 변환
+            sx, sy = server.world_to_screen(self.x, self.y)
+            img.draw(sx, sy)
 
 
 class EnemyAttack:
@@ -137,9 +139,25 @@ class EnemyAttack:
             game_world.remove_object(self)
 
     def draw(self):
-        # 디버그 모드일 때만 빨간 네모로 공격 범위 표시
         if DEFINES.bbvisible:
-            draw_rectangle(*self.get_bb())
+            # 🌟 [수정] get_bb()는 월드 좌표를 리턴하므로,
+            # 사각형을 그리기 위해 화면 좌표로 변환해야 함.
+            # 하지만 draw_rectangle은 (l, b, r, t)를 받으므로 계산이 좀 복잡해집니다.
+            # 가장 쉬운 방법: 중심 좌표를 변환해서 사각형 그리기
+
+            sx, sy = server.world_to_screen(self.x, self.y)
+            offset_x = 40 * self.face_dir
+
+            # 화면 기준 중심점
+            screen_cx = sx + offset_x
+            screen_cy = sy
+
+            l = screen_cx - self.width // 2
+            b = screen_cy - self.height // 2
+            r = screen_cx + self.width // 2
+            t = screen_cy + self.height // 2
+
+            draw_rectangle(l, b, r, t)
 
     def get_bb(self):
         # 적이 보는 방향(face_dir)에 따라 공격 박스를 앞쪽에 생성
@@ -514,16 +532,15 @@ class AttackEffect:
                 game_world.remove_object(self)
 
     def draw(self):
-        # 현재 프레임 번호(0 또는 1)에 해당하는 이미지 가져오기
         img = AttackEffect.images[self.frame]
 
+        # 🌟 [수정] 화면 좌표 변환
+        sx, sy = server.world_to_screen(self.x, self.y)
+
         if self.face_dir == 1:
-            # 오른쪽: 그냥 그리기
-            img.draw(self.x, self.y)
+            img.draw(sx, sy)
         else:
-            # 왼쪽: 좌우 반전('h')해서 그리기
-            # composite_draw(회전각, 반전, x, y, 너비, 높이)
-            img.composite_draw(0, 'h', self.x, self.y, img.w, img.h)
+            img.composite_draw(0, 'h', sx, sy, img.w, img.h)
 
 
 class Hit:
@@ -636,21 +653,26 @@ class Idle:
     def draw(self):
         FRAME_WIDTH = 32
         FRAME_HEIGHT = 16
-        # 🌟 수정됨: "위에서 2번째 줄" = 8번째 줄 (0~9)
         BOTTOM_ROW = 32 * 4
         frame_x = self.enemy.frame * FRAME_WIDTH
 
-        if self.enemy.face_dir == 1:  # 오른쪽
+        # 🌟 좌표 변환
+        sx, sy = server.world_to_screen(self.enemy.x, self.enemy.y)
+
+        if self.enemy.face_dir == 1:
             self.enemy.image.clip_draw(
                 frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
-                self.enemy.x, self.enemy.y,
-                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
+                sx, sy, # 🌟 sx, sy 사용
+                self.enemy.draw_width * self.enemy.scale[0],
+                self.enemy.draw_height * self.enemy.scale[1]
             )
-        else:  # 왼쪽
+        else:
             self.enemy.image.clip_composite_draw(
                 frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
-                0, 'h', self.enemy.x, self.enemy.y,
-                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
+                0, 'h',
+                sx, sy, # 🌟 sx, sy 사용
+                self.enemy.draw_width * self.enemy.scale[0],
+                self.enemy.draw_height * self.enemy.scale[1]
             )
 
 class Patrol:
@@ -688,21 +710,28 @@ class Patrol:
         FRAME_HEIGHT = 16
         BOTTOM_ROW = 32 * 3
 
-        if  self.enemy.frame >= 4 and self.enemy.frame <= 6:
+        if self.enemy.frame >= 4 and self.enemy.frame <= 6:
             FRAME_HEIGHT = 30
+
         frame_x = self.enemy.frame * FRAME_WIDTH
 
-        if self.enemy.face_dir == 1:  # 오른쪽
+        # 🌟 좌표 변환
+        sx, sy = server.world_to_screen(self.enemy.x, self.enemy.y)
+
+        if self.enemy.face_dir == 1:
             self.enemy.image.clip_draw(
                 frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
-                self.enemy.x, self.enemy.y,
-                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
+                sx, sy,  # 🌟 sx, sy 사용
+                self.enemy.draw_width * self.enemy.scale[0],
+                self.enemy.draw_height * self.enemy.scale[1]
             )
-        else:  # 왼쪽
+        else:
             self.enemy.image.clip_composite_draw(
                 frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
-                0, 'h', self.enemy.x, self.enemy.y,
-                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
+                0, 'h',
+                sx, sy,  # 🌟 sx, sy 사용
+                self.enemy.draw_width * self.enemy.scale[0],
+                self.enemy.draw_height * self.enemy.scale[1]
             )
 
 
@@ -853,44 +882,35 @@ class Enemy:
         self.state_machine.update(dt)
 
     def draw_hp(self):
-        # 1. 이미지가 로드되지 않았으면 건너뜀 (안전장치)
         if Enemy.hp_bg_image is None or Enemy.hp_fg_image is None:
             return
 
-        # 2. HP 비율 계산 (0.0 ~ 1.0)
-        # hp가 음수가 되면 0으로, max보다 크면 1로 고정
         ratio = clamp(0, self.hp / self.max_hp, 1)
-
-        # 3. 위치 잡기 (머리 위)
-        # scale[1]을 곱해주는 이유: 몬스터가 커지면 HP바도 더 위에 떠야 하니까
         y_offset = 20 * self.scale[1]
-
-        # 바의 전체 크기 (이미지 원본 크기 기준)
         bar_w = 64
         bar_h = 8
 
-        # 4. 그릴 좌표 계산 (좌측 하단 기준점)
-        # self.x는 몬스터의 중심이므로, 바의 절반 너비만큼 왼쪽으로 이동
-        left = self.x - (bar_w // 2)
-        bottom = self.y + y_offset
+        # 🌟 [수정] 몬스터의 화면 좌표를 먼저 구함
+        sx, sy = server.world_to_screen(self.x, self.y)
 
-        # 5. [배경] 그리기 (항상 전체 크기)
-        # draw_to_origin(x, y, w, h) -> x,y를 좌측 하단으로 잡고 그림
+        # 🌟 [수정] sx, sy를 기준으로 계산
+        left = sx - (bar_w // 2)
+        bottom = sy + y_offset
+
         Enemy.hp_bg_image.draw_to_origin(left, bottom, bar_w, bar_h)
-
-        # 6. [앞면] 그리기 (비율만큼 너비 축소)
-        # 높이(h)는 그대로 두고, 너비(w)에만 ratio를 곱함
         current_w = bar_w * ratio
         Enemy.hp_fg_image.draw_to_origin(left, bottom, current_w, bar_h)
 
-
-
     def draw(self):
-        # main.py에서 호출될 함수. 현재 상태의 draw()를 호출
         if DEFINES.bbvisible:
-            draw_rectangle(*self.get_bb())
+            # get_bb는 월드 좌표이므로 화면 좌표로 변환해서 그려야 함
+            l, b, r, t = self.get_bb()
+            sl, sb = server.world_to_screen(l, b)
+            sr, st = server.world_to_screen(r, t)
+            draw_rectangle(sl, sb, sr, st)
+
         self.state_machine.draw()
-        if self.hp < self.max_hp:  # (선택) 데미지를 입었을 때만 보이게 하려면 이 조건문 사용
+        if self.hp < self.max_hp:
             self.draw_hp()
         # hpbar.draw(self.x, self.y, self.hp, self.max_hp, 70)
     def handle_event(self, event):
