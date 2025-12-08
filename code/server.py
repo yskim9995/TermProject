@@ -1,0 +1,2 @@
+player = None
+background = None

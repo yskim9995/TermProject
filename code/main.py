@@ -60,9 +60,8 @@ def handle_events():
 
 # 🌟 1. 움직이지 않는 배경/벽만 생성 (최초 1회)
 def init_static_objects():
-    global bg
-    bg = Background()
-    game_world.add_object(bg, 0)  # Layer 0: 배경
+    server.background = Background()
+    game_world.add_object(server.background, 0)  # 레이어 0번에 추가
 
     # 지형지물(Grass) 생성
     # (기존 reset_world에 있던 벽 생성 코드 이동)
@@ -166,6 +165,8 @@ def reset_world():
 
     # 플레이어
     player = Player(16, 90)
+    import server
+    server.player = player
     game_world.add_object(player, 1)
     game_world.addcollide_pairs('player:enemy',player,None)
     game_world.addcollide_pairs('player:ground',player,None)
@@ -212,6 +213,7 @@ def reset_world():
 
 def update_world(dt):
     game_world.update(dt)
+
     game_world.handle_collision()
 
     pass

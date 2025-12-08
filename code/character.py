@@ -9,6 +9,7 @@ import hpbar
 
 import game_world
 import DEFINES
+import server
 # ... (파일 경로 체크 부분은 동일) ...
 
 RUN_SPEED_PPS = 300.0  # 초당 300 픽셀
@@ -117,15 +118,20 @@ class Jump:
         self.Player.y += self.Player.vy * dt
         self.Player.vy -= GRAVITY_PPS2 * dt
 
-        self.Player.x = clamp(25, self.Player.x, DEFINES.SCW - 25)
+        map_w = server.background.map_width if server.background else DEFINES.SCW * 3
+
+        self.Player.x = clamp(25, self.Player.x, map_w - 25)
 
     def draw(self):
         flip_str = 'h' if self.Player.face_dir == -1 else ''
 
-        # 🌟 JumpImages 사용
+        # 스크롤 좌표 계산
+        sx = self.Player.x - server.background.window_left
+        sy = self.Player.y - server.background.window_bottom
+
         self.Player.JumpImages[self.Player.frame].composite_draw(
             self.Player.rotation, flip_str,
-            self.Player.x, self.Player.y,
+            sx, sy,  # 🌟 수정됨
             self.Player.width * self.Player.scale[0],
             self.Player.height * self.Player.scale[1]
         )
@@ -156,15 +162,19 @@ class Run:
         self.Player.y += self.Player.vy * dt
         self.Player.vy -= GRAVITY_PPS2 * dt
 
-        self.Player.x = clamp(25, self.Player.x, DEFINES.SCW - 25)
+        map_w = server.background.map_width if server.background else DEFINES.SCW * 3
+
+        self.Player.x = clamp(25, self.Player.x, map_w - 25)
 
     def draw(self):
         flip_str = 'h' if self.Player.face_dir == -1 else ''
 
-        # 🌟 RunImages 사용
+        sx = self.Player.x - server.background.window_left
+        sy = self.Player.y - server.background.window_bottom
+
         self.Player.RunImages[self.Player.frame].composite_draw(
             self.Player.rotation, flip_str,
-            self.Player.x, self.Player.y,
+            sx, sy, # 🌟 수정됨
             self.Player.width * self.Player.scale[0],
             self.Player.height * self.Player.scale[1]
         )
@@ -206,10 +216,12 @@ class Hit:
     def draw(self):
         flip_str = 'h' if self.Player.face_dir == -1 else ''
 
-        # 🌟 HitImages 사용
+        sx = self.Player.x - server.background.window_left
+        sy = self.Player.y - server.background.window_bottom
+
         self.Player.HitImages[self.Player.frame].composite_draw(
             self.Player.rotation, flip_str,
-            self.Player.x, self.Player.y,
+            sx, sy,  # 🌟 수정됨
             self.Player.width * self.Player.scale[0],
             self.Player.height * self.Player.scale[1]
         )
@@ -244,17 +256,19 @@ class Idle:
             self.Player.frame_time -= time_per_frame
 
     def draw(self):
-        flip_str = ''  # 기본값 (오른쪽, 뒤집지 않음)
-        if self.Player.face_dir == -1:  # 왼쪽을 볼 때
-            flip_str = 'h'  # 'h' = horizontal flip (좌우 반전)
+        flip_str = ''
+        if self.Player.face_dir == -1:
+            flip_str = 'h'
 
-        # 2. rotate_draw 대신 composite_draw 사용
+        sx = self.Player.x - server.background.window_left
+        sy = self.Player.y - server.background.window_bottom
+
         self.Player.IdleImages[self.Player.frame].composite_draw(
-            self.Player.rotation,  # 1. 회전값 (radian)
-            flip_str,  # 2. 반전값 ('' or 'h')
-            self.Player.x, self.Player.y,  # 3. 위치 (x, y)
-            self.Player.width * self.Player.scale[0],  # 4. 너비 (width)
-            self.Player.height * self.Player.scale[1]  # 5. 높이 (height)
+            self.Player.rotation,
+            flip_str,
+            sx, sy,  # 🌟 수정됨
+            self.Player.width * self.Player.scale[0],
+            self.Player.height * self.Player.scale[1]
         )
 
 
@@ -388,12 +402,10 @@ class Player:
         elif DEFINES.current_weapon_mode == DEFINES.WEAPON_RAILGUN:
             self.railgun.update(dt)
 
-
     def draw(self):
         self.state_machine.draw()
 
-        # 🌟🌟 3. 무기 그리기 (중복 방지) 🌟🌟
-        # 조건문을 사용하여 '오직 하나'만 그립니다.
+        # 무기 그리기 (좌표 변환은 무기 클래스 안에서 해야 함 - 나중에 확인 필요)
         if DEFINES.current_weapon_mode == DEFINES.WEAPON_GUN:
             self.gun.draw()
         elif DEFINES.current_weapon_mode == DEFINES.WEAPON_SWORD:
@@ -401,9 +413,16 @@ class Player:
         elif DEFINES.current_weapon_mode == DEFINES.WEAPON_RAILGUN:
             self.railgun.draw()
 
-        # 디버그용 박스
+        # [삭제됨] self.image.draw(sx, sy)
+
+        # 디버그용 박스 (스크롤 적용)
         if DEFINES.bbvisible:
-            draw_rectangle(*self.get_bb())
+            l, b, r, t = self.get_bb()
+            l -= server.background.window_left
+            r -= server.background.window_left
+            b -= server.background.window_bottom
+            t -= server.background.window_bottom
+            draw_rectangle(l, b, r, t)
 
     def handle_event(self, event):
         if event.type == SDL_KEYDOWN:
