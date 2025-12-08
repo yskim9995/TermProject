@@ -35,13 +35,16 @@ class Background:
         print("배경 업데이트 실행 중!")
         # 플레이어가 생성되기 전엔 업데이트 건너뜀
         if server.player is None:
+            print("🚨 문제 발견: server.player가 비어있습니다! (None)")
             return
 
-        # 🌟 [교수님 코드 로직] 카메라 이동 계산
-        # 플레이어 위치(server.player.x)를 중심으로 카메라를 잡음
+        old_left = self.window_left  # 바뀌기 전 값
+
         self.window_left = clamp(0, int(server.player.x) - self.cw // 2, self.map_width - self.cw)
         self.window_bottom = clamp(0, int(server.player.y) - self.ch // 2, self.map_height - self.ch)
-        print(f"Player: {server.player.x}, Camera: {self.window_left}")
+
+        # 3. 데이터 확인 (플레이어가 오른쪽으로 갈 때 이 값들이 어떻게 나오는지 보세요)
+        print(f"플레이어X: {server.player.x:.0f} | 카메라Left: {self.window_left} | 맵너비: {self.map_width}")
 
     def draw(self):
         # 🌟 [핵심] 타일링 (옆으로 이어 붙여 그리기)

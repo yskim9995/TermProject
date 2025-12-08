@@ -98,6 +98,8 @@ def reset_stage():
     # 3. 플레이어 생성 및 총 등록
     # ------------------------------------------------------
     player = Player(16, 90)
+    import server
+    server.player = player
     player.scale = [3.0, 3.0]
     game_world.add_object(player, 1)
     # game_world.add_object(player.gun, 1)  # 플레이어가 가진 총 등록
@@ -165,8 +167,7 @@ def reset_world():
 
     # 플레이어
     player = Player(16, 90)
-    import server
-    server.player = player
+
     game_world.add_object(player, 1)
     game_world.addcollide_pairs('player:enemy',player,None)
     game_world.addcollide_pairs('player:ground',player,None)
