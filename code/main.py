@@ -5,6 +5,7 @@ import screen_effects
 from pico2d import SDL_BUTTON_LMASK, SDL_BUTTON_LEFT
 
 from enemy import *
+from enemy2 import *
 
 from Background import *
 from grass import Grass
@@ -104,7 +105,7 @@ def reset_stage():
     game_world.add_object(current_portal, 1)
 
     # 몬스터
-    enemys = [Enemy() for i in range(10)]
+    enemys = [Enemy2() for i in range(10)]
     game_world.add_objects(enemys, 1)
 
     # UI
@@ -127,6 +128,7 @@ def reset_stage():
     game_world.addcollide_pairs('player:ground', player, None)
     game_world.addcollide_pairs('player:portal', player, current_portal)
     game_world.addcollide_pairs('player:enemy_attack', player, None)
+    game_world.addcollide_pairs('player:poison', player, None)
 
     # (3) 몬스터 등록: 몬스터 루프는 따로 돌립니다.
     for enemy in enemys:

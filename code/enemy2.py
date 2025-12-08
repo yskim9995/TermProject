@@ -736,7 +736,114 @@ class Patrol:
 # 메인 Enemy 클래스
 # -----------------
 # 32 x  16
-class Enemy:
+class AttackPoison:
+    def __init__(self, enemy):
+        self.enemy = enemy
+        self.has_attacked = False
+
+    def enter(self, e):
+        self.enemy.dir = 0
+        self.enemy.frame = 0
+        self.enemy.frame_time = 0.0
+        self.has_attacked = False
+
+    def exit(self, e):
+        pass
+
+    def do(self, dt):
+        self.enemy.frame_time += dt
+        ATTACK_FRAME_TIME = 0.2
+
+        if self.enemy.frame_time >= ATTACK_FRAME_TIME:
+            self.enemy.frame_time = 0.0
+            self.enemy.frame += 1
+
+            # 🌟 4번째 프레임에서 독구름 생성!
+            if self.enemy.frame == 4 and not self.has_attacked:
+                self.spawn_poison()
+                self.has_attacked = True
+
+            # 애니메이션 종료
+            if self.enemy.frame >= 8:
+                self.enemy.frame = 0
+                self.enemy.state_machine.handle_state_event(('ATTACK_DONE', None))
+
+    def spawn_poison(self):
+        # 🌟 독구름 생성 위치 (몬스터 발 밑이나 입 앞)
+        # 바라보는 방향 앞쪽으로 조금 떨어진 곳
+        spawn_x = self.enemy.x + (self.enemy.face_dir * 50)
+        spawn_y = self.enemy.y - 20  # 약간 바닥 쪽
+
+        gas = PoisonGas(spawn_x, spawn_y)
+        game_world.add_object(gas, 2)  # 이펙트 레이어
+
+        # 🌟 [중요] 충돌 그룹 등록 (플레이어 : 독)
+        # main.py에서 이 그룹을 처리해줘야 함!
+        game_world.addcollide_pairs('player:poison', None, gas)
+
+    def draw(self):
+        # (기존 Attack draw와 동일하게 복사)
+        # server.world_to_screen 꼭 사용!
+        FRAME_WIDTH = 32
+        FRAME_HEIGHT = 16
+        BOTTOM_ROW = 32 * 2
+        frame_x = self.enemy.frame * FRAME_WIDTH
+        sx, sy = server.world_to_screen(self.enemy.x, self.enemy.y)
+
+        if self.enemy.face_dir == 1:
+            self.enemy.image.clip_draw(frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT, sx, sy,
+                                       self.enemy.draw_width * self.enemy.scale[0],
+                                       self.enemy.draw_height * self.enemy.scale[1])
+        else:
+            self.enemy.image.clip_composite_draw(frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT, 0, 'h', sx, sy,
+                                                 self.enemy.draw_width * self.enemy.scale[0],
+                                                 self.enemy.draw_height * self.enemy.scale[1])
+
+class PoisonGas:
+    image = None
+
+    def __init__(self, x, y):
+        self.x, self.y = x, y
+        self.lifetime = 3.0  # 독구름이 유지되는 시간 (3초)
+        self.spawn_time = get_time()
+        self.damage = 1  # 독 데미지 (지속 데미지라 낮게 설정)
+        self.scale = 2.0  # 독구름 크기
+
+        # 🌟 독구름 이미지 (없으면 임시로 이펙트 이미지나 다른거 사용)
+        if PoisonGas.image is None:
+            # 적절한 독 이미지가 없다면 기존 이펙트 중 하나를 로드하세요
+            try:
+                PoisonGas.image = load_image('resource/Sprites/GunsPack/effect/poison_cloud.png')
+            except:
+                # 이미지가 없을 경우 디버깅용 (투명하거나 기본 박스)
+                PoisonGas.image = load_image('resource/Sprites/GunsPack/effect/laygun_a1.png')
+
+    def update(self, dt):
+        # 시간이 지나면 사라짐
+        if get_time() - self.spawn_time > self.lifetime:
+            game_world.remove_object(self)
+
+    def draw(self):
+        # 🌟 화면 좌표 변환 필수
+        sx, sy = server.world_to_screen(self.x, self.y)
+
+        # 투명도 조절 (서서히 사라지게 하려면 opacify 사용 가능, 여기선 생략)
+        PoisonGas.image.draw(sx, sy, 64 * self.scale, 64 * self.scale)
+
+        if DEFINES.bbvisible:
+            draw_rectangle(*self.get_bb())
+
+    def get_bb(self):
+        # 독구름 범위 (약간 큼)
+        size = 50 * self.scale
+        return self.x - size, self.y - size, self.x + size, self.y + size
+
+    def handle_collision(self, group, other):
+        # 충돌 처리는 보통 Player쪽에서 맞았을 때 처리하거나,
+        # main.py에서 handle_collision으로 처리
+        pass
+
+class Enemy2:
     # 🌟 Boy 클래스에서 배운 대로, 이미지는 클래스 변수로 한 번만 로드
     image = None
     hp_bg_image = None
@@ -765,27 +872,27 @@ class Enemy:
         self.is_grounded = True  # (처음엔 땅에 있다고 가정)
 
         self.target = None#타겟 (플레이어) 초기화
-        if Enemy.image is None:
+        if Enemy2.image is None:
             print("Loading Enemy image...")
             try:
                 # 🌟 가정: 'resource' 폴더에 'enemy_animation.png' 파일이 있다고 가정
-                Enemy.image = load_image('resource/Sprites/Free Mushrooms/Mushroom_spike.png.png')
+                Enemy2.image = load_image('resource/Sprites/Free Mushrooms/Mushroom_spike.png')
             except Exception as e:
                 print(f"Enemy 이미지 로드 실패: {e}")
                 # 🌟 로드 실패 시 임시로 Boy 이미지 사용 (크래시 방지)
-                Enemy.image = load_image('resource/cha_test_15.png')
+                Enemy2.image = load_image('resource/cha_test_15.png')
 
-        if not hasattr(Enemy, 'hp_bar_bg'):
+        if not hasattr(Enemy2, 'hp_bar_bg'):
             # 파일 경로를 실제 이미지 파일명으로 수정하세요
-            Enemy.hp_bg_image = load_image('resource/Sprites/Free Mushrooms/btl_gage_hp_back.png')
-            Enemy.hp_fg_image = load_image('resource/Sprites/Free Mushrooms/btl_gage_hp.png')
+            Enemy2.hp_bg_image = load_image('resource/Sprites/Free Mushrooms/btl_gage_hp_back.png')
+            Enemy2.hp_fg_image = load_image('resource/Sprites/Free Mushrooms/btl_gage_hp.png')
 
         # 상태 객체 및 상태 머신 초기화
         self.IDLE = Idle(self)
         self.PATROL = Patrol(self)
         self.HIT = Hit(self)
         self.TRACE = Trace(self)
-        self.ATTACK = Attack(self)
+        self.ATTACK = AttackPoison(self)
         self.DIE = Die(self)
         self.RETURN = Return(self)
         self.state_machine = StateMachine(
@@ -878,7 +985,7 @@ class Enemy:
         self.state_machine.update(dt)
 
     def draw_hp(self):
-        if Enemy.hp_bg_image is None or Enemy.hp_fg_image is None:
+        if Enemy2.hp_bg_image is None or Enemy2.hp_fg_image is None:
             return
         ratio = clamp(0, self.hp / self.max_hp, 1)
         y_offset = 20 * self.scale[1]
@@ -890,9 +997,9 @@ class Enemy:
 
         left = sx - (bar_w // 2)
         bottom = sy + y_offset
-        Enemy.hp_bg_image.draw_to_origin(left, bottom, bar_w, bar_h)
+        Enemy2.hp_bg_image.draw_to_origin(left, bottom, bar_w, bar_h)
         current_w = bar_w * ratio
-        Enemy.hp_fg_image.draw_to_origin(left, bottom, current_w, bar_h)
+        Enemy2.hp_fg_image.draw_to_origin(left, bottom, current_w, bar_h)
 
     def draw(self):
         if DEFINES.bbvisible:

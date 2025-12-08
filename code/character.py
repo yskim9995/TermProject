@@ -491,6 +491,11 @@ class Player:
             #     self.state_machine.handle_state_event(('HIT', None))
             pass
 
+        if group == 'player:poison':
+            # 🌟 독에 닿았을 때 로직
+            # 예: 무적 시간이 아닐 때만 데미지 입기
+            self.hp -= other.damage
+            self.is_invincible = True  # 잠깐 무적
 
         if group == 'player:ground':
             if self.vy <= 0:
