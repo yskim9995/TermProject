@@ -846,23 +846,29 @@ class PoisonGas:
     def draw(self):
         if PoisonGas.image is None: return
 
-        # 화면 좌표 변환
+        # 🌟🌟 [핵심 수정] 월드 좌표(self.x, self.y) -> 화면 좌표(sx, sy)로 변환
         sx, sy = server.world_to_screen(self.x, self.y)
 
-        # 🌟 3. 현재 프레임의 위치 계산 (가로로 긴 이미지라고 가정)
-        # 왼쪽에서 (프레임 번호 * 프레임 너비) 만큼 떨어진 곳부터 자름
         left = self.frame * self.sprite_width
 
-        # clip_draw(잘라낼X, 잘라낼Y, 잘라낼폭, 잘라낼높이, 그릴X, 그릴Y, 그릴폭, 그릴높이)
+        # 🌟 변환된 sx, sy 위치에 그립니다.
         PoisonGas.image.clip_draw(
             left, 0,
             self.sprite_width, self.sprite_height,
-            sx, sy,
+            sx, sy,  # 🌟 sx, sy 사용
             64 * self.scale, 64 * self.scale
         )
 
         if DEFINES.bbvisible:
-            draw_rectangle(*self.get_bb())
+            # 바운딩 박스를 그릴 때도 변환이 필요할 수 있지만,
+            # 보통 get_bb는 월드 좌표를 리턴하고,
+            # 충돌 박스 그리는 함수(draw_rectangle)에 넣을 때 변환합니다.
+
+            # 정확하게 그리려면:
+            l, b, r, t = self.get_bb()
+            sl, sb = server.world_to_screen(l, b)
+            sr, st = server.world_to_screen(r, t)
+            draw_rectangle(sl, sb, sr, st)
 
     def get_bb(self):
         size = 40 * self.scale
@@ -904,7 +910,7 @@ class Enemy2:
             print("Loading Enemy image...")
             try:
                 # 🌟 가정: 'resource' 폴더에 'enemy_animation.png' 파일이 있다고 가정
-                Enemy2.image = load_image('resource/Sprites/Free Mushrooms/Mushroom_spike.png')
+                Enemy2.image = load_image('resource/Sprites/Free Mushrooms/Mushroom_Spotted.png')
             except Exception as e:
                 print(f"Enemy 이미지 로드 실패: {e}")
                 # 🌟 로드 실패 시 임시로 Boy 이미지 사용 (크래시 방지)

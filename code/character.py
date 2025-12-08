@@ -72,7 +72,8 @@ def ground_collision(e):
 def hit_event(e):
     return e[0] == 'HIT'
 
-
+def dead(e):
+    return e[0] == 'DEAD'
 # def right_down(e):
 #     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_RIGHT
 #
@@ -90,6 +91,68 @@ def hit_event(e):
 # ----------------------------------------------------
 # 2. 상태 클래스 (State Classes)
 # ----------------------------------------------------
+
+class Die:
+    images = None
+
+    def __init__(self, player):
+        self.player = player
+        self.frame = 0
+        self.frame_time = 0.0
+
+        # 🌟 죽는 모션 이미지 로드 (예: 4프레임)
+        if Die.images is None:
+            Die.images = []
+            try:
+                for i in range(1, 4):  # 1~4번 이미지
+                    # ⚠️ 본인의 죽는 이미지 파일명으로 수정 필수!
+                    # 없다면 임시로 stun 이미지 사용: f'resource/Sprites/Player/stun_{i}.png'
+                    Die.images.append(load_image(f'resource/Sprites/Player/player_sturn{i}.png'))
+            except:
+                print("죽음 이미지 로드 실패")
+                # 실패 시 기본 이미지로 채움
+                if hasattr(self.player, 'image'):
+                    Die.images = [self.player.image]
+
+    def enter(self, e):
+        print("PLAYER DIED... GAME OVER")
+        self.player.dir = 0  # 움직임 멈춤
+        self.player.frame = 0
+        self.frame_time = 0.0
+
+        # (선택) 죽었을 때 무기 숨기기
+        # import DEFINES
+        # DEFINES.Gunvisible = False
+
+    def exit(self, e):
+        pass
+
+    def do(self, dt):
+        self.frame_time += dt
+
+        # 애니메이션 속도
+        if self.frame_time >= 0.2:
+            self.frame_time = 0
+            self.frame += 1
+
+            # 🌟 마지막 프레임에서 멈춤 (계속 누워있기)
+            if self.frame >= len(Die.images):
+                self.frame = len(Die.images) - 1
+                # 여기서 게임 오버 UI를 띄우거나 스테이지를 재시작하는 함수 호출 가능
+
+    def draw(self):
+        sx, sy = server.world_to_screen(self.player.x, self.player.y)
+
+        if Die.images:
+            # 안전장치 (인덱스 초과 방지)
+            idx = min(self.frame, len(Die.images) - 1)
+            img = Die.images[idx]
+
+            if self.player.face_dir == 1:
+                img.draw(sx, sy, self.player.width * 3, self.player.height * 3)
+            else:
+                img.composite_draw(0, 'h', sx, sy, self.player.width * 3, self.player.height * 3)
+
 class Jump:
     def __init__(self, Player):
         self.Player = Player
@@ -326,6 +389,8 @@ class Player:
         self.RUN = Run(self)
         self.JUMP = Jump(self)
         self.HIT = Hit(self)
+        self.DIE = Die(self)
+
         from gun import Gun
         self.gun = Gun(self.x, self.y, self)
         self.sword = Sword(self)
@@ -349,23 +414,27 @@ class Player:
                 self.IDLE: {
                     keyDown_w: self.JUMP,
                     move_event: self.RUN,
-                    hit_event: self.HIT  # 피격 당하면 HIT로
+                    hit_event: self.HIT,  # 피격 당하면 HIT로
+                    dead: self.DIE
                 },
                 self.RUN: {
                     keyDown_w: self.JUMP,
                     stop_event: self.IDLE,
                     hit_event: self.HIT  # 달리다 맞아도 HIT로
+                    ,dead: self.DIE
                 },
                 self.JUMP: {
                     ground_collision: self.IDLE,
                     hit_event: self.HIT  # 점프 중 맞아도 HIT로
+                    ,dead: self.DIE
                 },
                 self.HIT: {
                     time_out: self.IDLE,  # 일정 시간 지나면 IDLE로 복귀
-                    ground_collision: self.HIT  # 피격 중 땅에 닿으면 처리(선택)
-                    # 만약 피격 중 떨어져서 땅에 닿아도 계속 피격 모션 유지하려면 이렇게
-                    # 혹은 땅에 닿으면 바로 IDLE로 가려면 ground_collision: self.IDLE
-                }
+                    ground_collision: self.HIT
+                    ,dead: self.DIE
+
+                },
+                self.DIE: { }
 
             })
     def update(self,dt):
@@ -487,16 +556,17 @@ class Player:
 
             pass
 
-        if group == 'player:poison':
-            # 🌟 무적 시간이 아닐 때만 스턴 걸림
+        if group == 'player:poison' or group == 'player:enemy_attack':
             if self.invincible_time <= 0:
                 self.hp -= other.damage
+                self.invincible_time = 1.0  # 1초 무적
 
-                # 🌟 [핵심] 스턴 상태로 전환하는 이벤트 발생!
-                self.state_machine.handle_state_event(('HIT', other))
+                self.state_machine.handle_state_event(('HIT', None))
+                print(f"Player Hit! HP: {self.hp}")
 
-                # 무적 시간 조금 부여 (연속 스턴 방지)
-                self.invincible_time = 1.0
+            # 🌟 [핵심] HP가 0 이하면 죽음 상태로 전환!
+            if self.hp <= 0:
+                self.state_machine.handle_state_event(('DEAD', None))
 
         if group == 'player:ground':
             if self.vy <= 0:
@@ -511,9 +581,9 @@ class Player:
                 # 만약 HIT 상태에서도 땅에 닿으면 바로 걷게 하고 싶다면 아래 주석 해제
                 # if self.state_machine.cur_state == self.HIT:
                 #     self.state_machine.handle_state_event(('TIME_OUT', None))
-        if group == 'player:enemy_attack':
-            if self.hit_time >= 0.5:  # 무적 시간 체크
-                self.hit_time = 0
-                self.hp -= 10  # other.damage를 가져와도 됨
-                print("아얏! 몬스터 공격에 맞음")
-                self.state_machine.handle_state_event(('HIT', None))  # 플레이어도 HIT 상태로
+        # if group == 'player:enemy_attack':
+        #     if self.hit_time >= 0.5:  # 무적 시간 체크
+        #         self.hit_time = 0
+        #         self.hp -= 10  # other.damage를 가져와도 됨
+        #         print("아얏! 몬스터 공격에 맞음")
+        #         self.state_machine.handle_state_event(('HIT', None))  # 플레이어도 HIT 상태로
