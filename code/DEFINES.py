@@ -16,3 +16,4 @@ WEAPON_SWORD = 1 # 검
 WEAPON_RAILGUN = 2 # 레일건
 
 current_weapon_mode = WEAPON_GUN
+
