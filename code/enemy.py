@@ -111,9 +111,7 @@ class DeathEffect:
     def draw(self):
         if self.frame < len(DeathEffect.images):
             img = DeathEffect.images[self.frame]
-
-            # 🌟 [수정] 화면 좌표 변환
-            sx, sy = server.world_to_screen(self.x, self.y)
+            sx, sy = server.world_to_screen(self.x, self.y) # 🌟 변환
             img.draw(sx, sy)
 
 
@@ -218,26 +216,27 @@ class Die:
 
     def draw(self):
         FRAME_WIDTH = 32
-        FRAME_HEIGHT = 16  # 눕는 모션이라 높이가 낮을 수 있음 (이미지에 따라 조정)
-
-        # 🌟 [중요] 죽는 모션이 있는 줄(Row)을 설정하세요!
-        # 예: 맨 아랫줄이면 0, 위에서 두 번째면 32 * ?
-        # 여기선 32 * 5 (위에서 6번째 줄)라고 가정하겠습니다.
+        FRAME_HEIGHT = 16
         BOTTOM_ROW = 32 * 0
-
         frame_x = self.enemy.frame * FRAME_WIDTH
+
+        # 🌟 좌표 변환
+        sx, sy = server.world_to_screen(self.enemy.x, self.enemy.y)
 
         if self.enemy.face_dir == 1:
             self.enemy.image.clip_draw(
                 frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
-                self.enemy.x, self.enemy.y,
-                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
+                sx, sy, # 🌟 sx, sy 사용
+                self.enemy.draw_width * self.enemy.scale[0],
+                self.enemy.draw_height * self.enemy.scale[1]
             )
         else:
             self.enemy.image.clip_composite_draw(
                 frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
-                0, 'h', self.enemy.x, self.enemy.y,
-                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
+                0, 'h',
+                sx, sy, # 🌟 sx, sy 사용
+                self.enemy.draw_width * self.enemy.scale[0],
+                self.enemy.draw_height * self.enemy.scale[1]
             )
 
 
@@ -281,35 +280,32 @@ class Return:
             self.enemy.state_machine.handle_state_event(('ARRIVED', None))
 
     def draw(self):
-        # 🌟 [Patrol 스타일로 변경]
         FRAME_WIDTH = 32
-        FRAME_HEIGHT = 16  # 기본 높이 16
+        FRAME_HEIGHT = 16
         BOTTOM_ROW = 32 * 3
 
-        # 🌟 특정 프레임에서만 키가 커지는 Patrol 로직 적용
         if self.enemy.frame >= 4 and self.enemy.frame <= 6:
             FRAME_HEIGHT = 30
-
         frame_x = self.enemy.frame * FRAME_WIDTH
-
-        # 🌟 높이 보정 (키가 커질 때 발이 땅에 박히지 않게 위로 올림)
-        # (현재 높이 - 기본 높이) / 2 * 스케일
         y_offset = (FRAME_HEIGHT - 16) / 2 * self.enemy.scale[1]
+
+        # 🌟 좌표 변환
+        sx, sy = server.world_to_screen(self.enemy.x, self.enemy.y)
 
         if self.enemy.face_dir == 1:
             self.enemy.image.clip_draw(
                 frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
-                self.enemy.x, self.enemy.y + y_offset,  # y 보정 적용
-                              self.enemy.draw_width * self.enemy.scale[0],
-                              FRAME_HEIGHT * self.enemy.scale[1]  # 현재 높이 적용
+                sx, sy + y_offset, # 🌟 sx, sy 사용 (+오프셋)
+                self.enemy.draw_width * self.enemy.scale[0],
+                FRAME_HEIGHT * self.enemy.scale[1]
             )
         else:
             self.enemy.image.clip_composite_draw(
                 frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
                 0, 'h',
-                self.enemy.x, self.enemy.y + y_offset,  # y 보정 적용
-                              self.enemy.draw_width * self.enemy.scale[0],
-                              FRAME_HEIGHT * self.enemy.scale[1]  # 현재 높이 적용
+                sx, sy + y_offset, # 🌟 sx, sy 사용 (+오프셋)
+                self.enemy.draw_width * self.enemy.scale[0],
+                FRAME_HEIGHT * self.enemy.scale[1]
             )
 class Trace:
     """
@@ -386,39 +382,32 @@ class Trace:
 
     def draw(self):
         FRAME_WIDTH = 32
-        FRAME_HEIGHT = 30  # <-- Trace 상태의 실제 스프라이트 높이
+        FRAME_HEIGHT = 30
         BOTTOM_ROW = 32 * 4
         start_pixel_x = 32 * 6
 
-        # 🌟 높이 보정 계산 (기본 높이 16과 비교)
-        # 만약 Enemy 클래스의 draw_height가 16으로 고정되어 있다면 이 값이 필요
-        # 아니면 그냥 FRAME_HEIGHT - Enemy.bounding_box_height 등으로 계산해야 함
-
-        # 현재 코드의 Enemy.__init__을 보면 draw_height가 16으로 되어있습니다.
-        # 그래서 16을 기준으로 얼마나 커졌는지 계산해야 합니다.
-        base_height_for_offset = self.enemy.bounding_box_height  # Enemy 클래스의 바운딩 박스 높이 사용
+        base_height_for_offset = self.enemy.bounding_box_height
         y_offset = (FRAME_HEIGHT - base_height_for_offset) / 2 * self.enemy.scale[1]
 
         frame_x = start_pixel_x + (self.enemy.frame * FRAME_WIDTH)
 
+        # 🌟 좌표 변환
+        sx, sy = server.world_to_screen(self.enemy.x, self.enemy.y)
+
         if self.enemy.face_dir == 1:
             self.enemy.image.clip_draw(
                 frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
-                self.enemy.x,
-                self.enemy.y + y_offset,
-                self.enemy.draw_width * self.enemy.scale[0],
-                # 🌟 [수정] draw_height 대신 FRAME_HEIGHT 사용하고 여기에 스케일 적용
-                FRAME_HEIGHT * self.enemy.scale[1]
+                sx, sy + y_offset,  # 🌟 sx, sy 사용 (+오프셋)
+                    self.enemy.draw_width * self.enemy.scale[0],
+                    FRAME_HEIGHT * self.enemy.scale[1]
             )
         else:
             self.enemy.image.clip_composite_draw(
                 frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
                 0, 'h',
-                self.enemy.x,
-                self.enemy.y + y_offset,
-                self.enemy.draw_width * self.enemy.scale[0],
-                # 🌟 [수정] draw_height 대신 FRAME_HEIGHT 사용하고 여기에 스케일 적용
-                FRAME_HEIGHT * self.enemy.scale[1]
+                sx, sy + y_offset,  # 🌟 sx, sy 사용 (+오프셋)
+                    self.enemy.draw_width * self.enemy.scale[0],
+                    FRAME_HEIGHT * self.enemy.scale[1]
             )
 
 
@@ -483,23 +472,28 @@ class Attack:
         game_world.add_object(effect, 3)
 
     def draw(self):
-        # (기존 draw 코드 유지)
         FRAME_WIDTH = 32
         FRAME_HEIGHT = 16
-        BOTTOM_ROW = 32 * 2  # 공격 모션 위치 확인 필요
+        BOTTOM_ROW = 32 * 2
         frame_x = self.enemy.frame * FRAME_WIDTH
+
+        # 🌟 좌표 변환
+        sx, sy = server.world_to_screen(self.enemy.x, self.enemy.y)
 
         if self.enemy.face_dir == 1:
             self.enemy.image.clip_draw(
                 frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
-                self.enemy.x, self.enemy.y,
-                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
+                sx, sy, # 🌟 sx, sy 사용
+                self.enemy.draw_width * self.enemy.scale[0],
+                self.enemy.draw_height * self.enemy.scale[1]
             )
         else:
             self.enemy.image.clip_composite_draw(
                 frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
-                0, 'h', self.enemy.x, self.enemy.y,
-                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
+                0, 'h',
+                sx, sy, # 🌟 sx, sy 사용
+                self.enemy.draw_width * self.enemy.scale[0],
+                self.enemy.draw_height * self.enemy.scale[1]
             )
 
 
@@ -533,10 +527,7 @@ class AttackEffect:
 
     def draw(self):
         img = AttackEffect.images[self.frame]
-
-        # 🌟 [수정] 화면 좌표 변환
-        sx, sy = server.world_to_screen(self.x, self.y)
-
+        sx, sy = server.world_to_screen(self.x, self.y) # 🌟 변환
         if self.face_dir == 1:
             img.draw(sx, sy)
         else:
@@ -606,19 +597,24 @@ class Hit:
         BOTTOM_ROW = 32 * 0
         frame_x = self.enemy.frame * FRAME_WIDTH
 
-        if self.enemy.face_dir == 1:  # 오른쪽
+        # 🌟 좌표 변환
+        sx, sy = server.world_to_screen(self.enemy.x, self.enemy.y)
+
+        if self.enemy.face_dir == 1:
             self.enemy.image.clip_draw(
                 frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
-                self.enemy.x, self.enemy.y,
-                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
+                sx, sy, # 🌟 sx, sy 사용
+                self.enemy.draw_width * self.enemy.scale[0],
+                self.enemy.draw_height * self.enemy.scale[1]
             )
-        else:  # 왼쪽
+        else:
             self.enemy.image.clip_composite_draw(
                 frame_x, BOTTOM_ROW, FRAME_WIDTH, FRAME_HEIGHT,
-                0, 'h', self.enemy.x, self.enemy.y,
-                self.enemy.draw_width * self.enemy.scale[0], self.enemy.draw_height * self.enemy.scale[1]
+                0, 'h',
+                sx, sy, # 🌟 sx, sy 사용
+                self.enemy.draw_width * self.enemy.scale[0],
+                self.enemy.draw_height * self.enemy.scale[1]
             )
-
 class Idle:
     """
     적이 제자리에서 대기하는 상태
@@ -884,26 +880,23 @@ class Enemy:
     def draw_hp(self):
         if Enemy.hp_bg_image is None or Enemy.hp_fg_image is None:
             return
-
         ratio = clamp(0, self.hp / self.max_hp, 1)
         y_offset = 20 * self.scale[1]
         bar_w = 64
         bar_h = 8
 
-        # 🌟 [수정] 몬스터의 화면 좌표를 먼저 구함
+        # 🌟 좌표 변환
         sx, sy = server.world_to_screen(self.x, self.y)
 
-        # 🌟 [수정] sx, sy를 기준으로 계산
         left = sx - (bar_w // 2)
         bottom = sy + y_offset
-
         Enemy.hp_bg_image.draw_to_origin(left, bottom, bar_w, bar_h)
         current_w = bar_w * ratio
         Enemy.hp_fg_image.draw_to_origin(left, bottom, current_w, bar_h)
 
     def draw(self):
         if DEFINES.bbvisible:
-            # get_bb는 월드 좌표이므로 화면 좌표로 변환해서 그려야 함
+            # 바운딩 박스 그리기용 좌표 변환
             l, b, r, t = self.get_bb()
             sl, sb = server.world_to_screen(l, b)
             sr, st = server.world_to_screen(r, t)

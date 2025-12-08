@@ -65,7 +65,7 @@ def init_static_objects():
 
     # 지형지물(Grass) 생성
     # (기존 reset_world에 있던 벽 생성 코드 이동)
-    for i in range(4):
+    for i in range(7):
         long_grass_bar = Grass(240 + 483 * i, 30, 16, 223, 161, 33, scale=3.0)
         game_world.add_object(long_grass_bar, 0)  # Layer 0: 벽
 
@@ -76,7 +76,7 @@ def init_static_objects():
         # 보통 add_collision_pair(group, a, b) 방식이라면 여기서 할 필요 없음.
         pass
 
-    for i in range(4):
+    for i in range(7):
         long_grass_bar = Grass(723 + 483 * i, 200, 16, 223, 161, 33, scale=3.0)
         game_world.add_object(long_grass_bar, 0)
 
