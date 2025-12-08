@@ -799,48 +799,76 @@ class AttackPoison:
                                                  self.enemy.draw_width * self.enemy.scale[0],
                                                  self.enemy.draw_height * self.enemy.scale[1])
 
+
 class PoisonGas:
     image = None
 
     def __init__(self, x, y):
         self.x, self.y = x, y
-        self.lifetime = 3.0  # 독구름이 유지되는 시간 (3초)
+        self.lifetime = 1.2  # 3초간 유지
         self.spawn_time = get_time()
-        self.damage = 1  # 독 데미지 (지속 데미지라 낮게 설정)
-        self.scale = 2.0  # 독구름 크기
+        self.damage = 10
+        self.scale = 1.0
 
-        # 🌟 독구름 이미지 (없으면 임시로 이펙트 이미지나 다른거 사용)
+        # 애니메이션 정보
+        self.frame = 0
+        self.frame_time = 0.0
+        self.total_frames = 10  # 전체 프레임 수 (10개)
+
+        # 🌟 1. 긴 이미지 한 장 로드
         if PoisonGas.image is None:
-            # 적절한 독 이미지가 없다면 기존 이펙트 중 하나를 로드하세요
+            # ⚠️ 실제 파일명으로 꼭 수정해주세요! (예: poison_sheet.png)
             try:
-                PoisonGas.image = load_image('resource/Sprites/GunsPack/effect/poison_cloud.png')
+                PoisonGas.image = load_image('resource/Sprites/Free Mushrooms/Mush_Poison.png')
             except:
-                # 이미지가 없을 경우 디버깅용 (투명하거나 기본 박스)
-                PoisonGas.image = load_image('resource/Sprites/GunsPack/effect/laygun_a1.png')
+                print("독구름 스프라이트 시트 로드 실패")
+
+        # 🌟 2. 프레임 하나의 크기 계산 (전체 너비 / 10)
+        # 이미지가 로드되지 않았을 경우를 대비해 안전장치 추가
+        if PoisonGas.image:
+            self.sprite_width = PoisonGas.image.w // self.total_frames
+            self.sprite_height = PoisonGas.image.h
+        else:
+            self.sprite_width = 0
+            self.sprite_height = 0
 
     def update(self, dt):
-        # 시간이 지나면 사라짐
         if get_time() - self.spawn_time > self.lifetime:
             game_world.remove_object(self)
+            return
+
+        self.frame_time += dt
+        # 0.1초마다 프레임 변경
+        if self.frame_time >= 0.1:
+            self.frame_time = 0
+            self.frame = (self.frame + 1) % self.total_frames
 
     def draw(self):
-        # 🌟 화면 좌표 변환 필수
+        if PoisonGas.image is None: return
+
+        # 화면 좌표 변환
         sx, sy = server.world_to_screen(self.x, self.y)
 
-        # 투명도 조절 (서서히 사라지게 하려면 opacify 사용 가능, 여기선 생략)
-        PoisonGas.image.draw(sx, sy, 64 * self.scale, 64 * self.scale)
+        # 🌟 3. 현재 프레임의 위치 계산 (가로로 긴 이미지라고 가정)
+        # 왼쪽에서 (프레임 번호 * 프레임 너비) 만큼 떨어진 곳부터 자름
+        left = self.frame * self.sprite_width
+
+        # clip_draw(잘라낼X, 잘라낼Y, 잘라낼폭, 잘라낼높이, 그릴X, 그릴Y, 그릴폭, 그릴높이)
+        PoisonGas.image.clip_draw(
+            left, 0,
+            self.sprite_width, self.sprite_height,
+            sx, sy,
+            64 * self.scale, 64 * self.scale
+        )
 
         if DEFINES.bbvisible:
             draw_rectangle(*self.get_bb())
 
     def get_bb(self):
-        # 독구름 범위 (약간 큼)
-        size = 50 * self.scale
+        size = 40 * self.scale
         return self.x - size, self.y - size, self.x + size, self.y + size
 
     def handle_collision(self, group, other):
-        # 충돌 처리는 보통 Player쪽에서 맞았을 때 처리하거나,
-        # main.py에서 handle_collision으로 처리
         pass
 
 class Enemy2:

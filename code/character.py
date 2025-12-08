@@ -90,6 +90,61 @@ def hit_event(e):
 # ----------------------------------------------------
 # 2. 상태 클래스 (State Classes)
 # ----------------------------------------------------
+class Stun:
+    images = None
+
+    def __init__(self, player):
+        self.player = player
+        self.frame = 0
+        self.frame_time = 0.0
+
+        # 🌟 3프레임 스턴 이미지 로드
+        if Stun.images is None:
+            Stun.images = []
+            try:
+                for i in range(1, 4):  # 1, 2, 3번 이미지
+                    # 파일 경로를 본인 파일에 맞게 수정하세요! (예: stun_1.png)
+                    Stun.images.append(load_image(f'resource/Sprites/Player/player_sturn{i}.png'))
+            except:
+                print("스턴 이미지 로드 실패, 기본 이미지 사용")
+                # 실패 시 피격 이미지나 기본 이미지 등으로 대체
+                if hasattr(self.player, 'image'):
+                    Stun.images = [self.player.image] * 3
+
+    def enter(self, e):
+        self.player.dir = 0  # 🌟 움직임 멈춤
+        self.player.frame = 0
+        self.frame_time = 0.0
+        print("PLAYER STUNNED!")
+
+    def exit(self, e):
+        pass
+
+    def do(self, dt):
+        self.frame_time += dt
+
+        # 🌟 애니메이션 속도 조절 (0.15초마다 프레임 변경 -> 총 0.45초 스턴)
+        # 3프레임이 너무 순식간에 지나가면 플레이어가 모를 수 있으니 시간을 좀 줍니다.
+        if self.frame_time >= 0.15:
+            self.frame_time = 0
+            self.frame += 1
+
+            # 3프레임(0, 1, 2)을 다 보여줬으면 상태 복귀
+            if self.frame >= 3:
+                self.player.state_machine.handle_state_event(('TIME_OUT', None))
+
+    def draw(self):
+        # 🌟 화면 좌표 변환
+        sx, sy = server.world_to_screen(self.player.x, self.player.y)
+
+        # 현재 프레임 이미지 그리기
+        if self.frame < len(Stun.images):
+            img = Stun.images[self.frame]
+
+            if self.player.face_dir == 1:
+                img.draw(sx, sy, self.player.width * 3, self.player.height * 3)
+            else:
+                img.composite_draw(0, 'h', sx, sy, self.player.width * 3, self.player.height * 3)
 
 class Jump:
     def __init__(self, Player):
@@ -317,6 +372,8 @@ class Player:
         self.x = x
         self.y = y
 
+        self.invincible_time = 0.0
+
         self.vy = 0.0
         self.gravity = 1.2
         self.hit_time = 0.0
@@ -325,7 +382,7 @@ class Player:
         self.RUN = Run(self)
         self.JUMP = Jump(self)
         self.HIT = Hit(self)
-
+        self.STUN = Stun(self)
         from gun import Gun
         self.gun = Gun(self.x, self.y, self)
         self.sword = Sword(self)
@@ -365,11 +422,21 @@ class Player:
                     ground_collision: self.HIT  # 피격 중 땅에 닿으면 처리(선택)
                     # 만약 피격 중 떨어져서 땅에 닿아도 계속 피격 모션 유지하려면 이렇게
                     # 혹은 땅에 닿으면 바로 IDLE로 가려면 ground_collision: self.IDLE
+                },
+                self.STUN: {
+                    time_out: self.IDLE,  # 시간 다 되면 IDLE로 복귀
+                    # dead: self.DIE  # 스턴 중 죽으면 DIE로
                 }
             })
     def update(self,dt):
         if self.hit_time < 0.5:
             self.hit_time+= dt
+
+        print(f"무적시간: {self.invincible_time:.2f}")
+        if self.invincible_time > 0:
+            self.invincible_time -= dt
+
+
         # 🌟 3. 'dir'을 매 프레임 'key_map' 기준으로 계산
         new_dir = self.key_map['d'] - self.key_map['a']
 
@@ -394,7 +461,6 @@ class Player:
 
             # handle_event에서 True로 만든 변수를 여기서 검사합니다.
             if self.mouse_button_down:
-                print('들어오냐')
                 self.gun.try_fire(game_world.world[1])  # 👈 여기서 발사!
 
         elif DEFINES.current_weapon_mode == DEFINES.WEAPON_SWORD:
@@ -448,7 +514,6 @@ class Player:
 
         if event.type == SDL_MOUSEBUTTONDOWN and event.button == SDL_BUTTON_LEFT:
             self.mouse_button_down = True  # 👈 이제 총 모드에서도 이게 실행됩니다!
-            print("MOUSE DOWN CHECK")  # 디버깅
 
             # 무기별 특수 동작 (검, 레일건)
             if DEFINES.current_weapon_mode == DEFINES.WEAPON_SWORD:
@@ -480,22 +545,19 @@ class Player:
 
     def handle_collision(self, group, other):
         if group == 'player:enemy':
-            # 무적 시간 체크 (연속 피격 방지)
-            # if self.hit_time >= 0.5 and self.hp > 0:
-            #     self.hit_time = 0
-            #     self.hp -= 10
-            #     screen_effects.trigger(0.1)
-            #     print('플레이어가 몬스터에 충돌')
-            #
-            #     # 🌟 상태 머신에 HIT 이벤트 전송!
-            #     self.state_machine.handle_state_event(('HIT', None))
+
             pass
 
         if group == 'player:poison':
-            # 🌟 독에 닿았을 때 로직
-            # 예: 무적 시간이 아닐 때만 데미지 입기
-            self.hp -= other.damage
-            self.is_invincible = True  # 잠깐 무적
+            # 🌟 무적 시간이 아닐 때만 스턴 걸림
+            if self.invincible_time <= 0:
+                self.hp -= other.damage
+
+                # 🌟 [핵심] 스턴 상태로 전환하는 이벤트 발생!
+                self.state_machine.handle_state_event(('STUN', other))
+
+                # 무적 시간 조금 부여 (연속 스턴 방지)
+                self.invincible_time = 1.0
 
         if group == 'player:ground':
             if self.vy <= 0:
