@@ -6,7 +6,7 @@ from pico2d import SDL_BUTTON_LMASK, SDL_BUTTON_LEFT
 
 from enemy import *
 from enemy2 import *
-
+from boss import *
 from Background import *
 from grass import Grass
 from hpbar import Hpbar
@@ -108,6 +108,8 @@ def reset_stage():
     enemys = [Enemy2() for i in range(10)]
     game_world.add_objects(enemys, 1)
 
+    boss = Boss(2000, 200)  # 맵 끝자락에 배치
+    game_world.add_object(boss, 1)
     # UI
     player_hp_bar = hpbar.Hpbar(player)
     game_world.add_object(player_hp_bar, 0)

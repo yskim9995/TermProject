@@ -104,10 +104,10 @@ class Die:
         if Die.images is None:
             Die.images = []
             try:
-                for i in range(1, 4):  # 1~4번 이미지
-                    # ⚠️ 본인의 죽는 이미지 파일명으로 수정 필수!
-                    # 없다면 임시로 stun 이미지 사용: f'resource/Sprites/Player/stun_{i}.png'
-                    Die.images.append(load_image(f'resource/Sprites/Player/player_sturn{i}.png'))
+                Die.images.append(load_image(f'resource/Sprites/character/player/player_sturn1.png'))
+                Die.images.append(load_image(f'resource/Sprites/character/player/player_sturn2.png'))
+                Die.images.append(load_image(f'resource/Sprites/character/player/player_sturn3.png'))
+                print('죽음 이미지 로드 성공')
             except:
                 print("죽음 이미지 로드 실패")
                 # 실패 시 기본 이미지로 채움
