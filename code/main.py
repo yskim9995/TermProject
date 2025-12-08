@@ -54,9 +54,8 @@ def handle_events():
         elif event.type == SDL_MOUSEBUTTONUP:
             if event.button == SDL_BUTTON_LEFT:
                 mouse_state = False
-        else:
-            if player:
-                player.handle_event(event)
+        if player:
+            player.handle_event(event)
 
 
 # 🌟 1. 움직이지 않는 배경/벽만 생성 (최초 1회)
@@ -102,7 +101,7 @@ def reset_stage():
     player = Player(16, 90)
     player.scale = [3.0, 3.0]
     game_world.add_object(player, 1)
-    game_world.add_object(player.gun, 1)  # 플레이어가 가진 총 등록
+    # game_world.add_object(player.gun, 1)  # 플레이어가 가진 총 등록
 
     # ------------------------------------------------------
     # 4. 포탈 및 몬스터 생성
@@ -223,7 +222,7 @@ def render_world():
     game_world.render()
     update_canvas()
     pass
-    
+
 
 running = True
 mouse_state = False
@@ -239,23 +238,24 @@ reset_stage()
 
 current_time = get_time()
 while running:
-    # 1. Delta Time (dt) 계산
+    # 1. 시간 계산
     new_time = get_time()
     dt = new_time - current_time
     current_time = new_time
     DEFINES.dt = dt
 
-    # 2. 이벤트 처리 (키보드, 마우스 위치)
-    handle_events()
+    # 2. 이벤트 처리
+    handle_events()  # 여기서 player.handle_event()가 호출되어 마우스 상태가 갱신됨
 
-    # 🌟 3. '상태' 폴링 (Polling) 및 로직 처리
-    # 마우스 왼쪽 버튼이 '눌려있는지' main에서 직접 확인
+    # 3. 로직 처리
     if collide(player, current_portal):
         print("Next Stage!")
-        reset_stage()  # 🌟 벽은 그대로 두고 플레이어/몬스터만 리셋!
-    if mouse_state:
-        player.fire()
+        reset_stage()
 
+    # 🌟 [삭제] 이 줄을 반드시 지우거나 주석 처리하세요!
+    # if mouse_state: player.fire()  <-- 이 녀석이 범인입니다.
+
+    # 이제 player.update() 안에서 무기 상태에 따라 알아서 발사합니다.
     update_world(dt)
 
     clear_canvas()

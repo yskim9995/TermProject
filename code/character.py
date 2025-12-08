@@ -1,5 +1,5 @@
 from pico2d import *
-from sdl2 import SDL_KEYDOWN, SDLK_SPACE, SDLK_RIGHT, SDL_KEYUP, SDLK_LEFT, SDLK_a, SDLK_e, SDLK_d, SDLK_w,SDLK_s
+from sdl2 import *
 import os
 import screen_effects
 from sword import Sword
@@ -265,16 +265,8 @@ class Idle:
 class Player:
 
     def __init__(self, x, y):
-        # self.IdleImages = [load_image('resource/Sprites/Character/char0.png'),
-        #                    load_image('resource/Sprites/Character/char1.png'),
-        #                    load_image('resource/Sprites/Character/char2.png'),
-        #                    load_image('resource/Sprites/Character/char3.png'),
-        #                    load_image('resource/Sprites/Character/char4.png'),
-        #                    load_image('resource/Sprites/Character/char5.png'),
-        #                    load_image('resource/Sprites/Character/char6.png'),
-        #                    load_image('resource/Sprites/Character/char7.png'),
-        #                    load_image('resource/Sprites/Character/char8.png'),
-        #                    load_image('resource/Sprites/Character/char9.png')]
+
+
 
 
         #아이들
@@ -325,6 +317,12 @@ class Player:
         self.sword = Sword(self)
         self.railgun = Railgun(self.x ,self.y, self)
 
+        self.key_map = {'a': 0, 'd': 0}
+
+        # ▼▼▼ [추가] 마우스 버튼이 현재 눌려있는지 체크하는 변수 ▼▼▼
+        self.mouse_button_down = False
+
+
         self.width = self.IdleImages[0].w
         self.height = self.IdleImages[0].h
 
@@ -373,14 +371,37 @@ class Player:
         # 'dir'이 0이 아닐 때만 face_dir 업데이트
         if self.dir != 0:
             self.face_dir = self.dir
+
         self.state_machine.update(dt)
-        self.gun.update(dt)
-        self.sword.update(dt)
+
+        # 🌟 디버깅: 총 모드일 때 마우스 상태 확인
+        if DEFINES.current_weapon_mode == DEFINES.WEAPON_GUN:
+            self.gun.update(dt)
+
+            # handle_event에서 True로 만든 변수를 여기서 검사합니다.
+            if self.mouse_button_down:
+                print('들어오냐')
+                self.gun.try_fire(game_world.world[1])  # 👈 여기서 발사!
+
+        elif DEFINES.current_weapon_mode == DEFINES.WEAPON_SWORD:
+            self.sword.update(dt)
+        elif DEFINES.current_weapon_mode == DEFINES.WEAPON_RAILGUN:
+            self.railgun.update(dt)
 
 
     def draw(self):
         self.state_machine.draw()
-        self.gun.draw()
+
+        # 🌟🌟 3. 무기 그리기 (중복 방지) 🌟🌟
+        # 조건문을 사용하여 '오직 하나'만 그립니다.
+        if DEFINES.current_weapon_mode == DEFINES.WEAPON_GUN:
+            self.gun.draw()
+        elif DEFINES.current_weapon_mode == DEFINES.WEAPON_SWORD:
+            self.sword.draw()
+        elif DEFINES.current_weapon_mode == DEFINES.WEAPON_RAILGUN:
+            self.railgun.draw()
+
+        # 디버그용 박스
         if DEFINES.bbvisible:
             draw_rectangle(*self.get_bb())
 
@@ -390,13 +411,40 @@ class Player:
                 self.key_map['a'] = 1
             elif event.key == SDLK_d:
                 self.key_map['d'] = 1
+            elif event.key == SDLK_1:
+                DEFINES.current_weapon_mode = DEFINES.WEAPON_GUN
+                print("SWITCH WEAPON: GUN")
+            elif event.key == SDLK_2:
+                DEFINES.current_weapon_mode = DEFINES.WEAPON_SWORD
+                print("SWITCH WEAPON: SWORD")
+            elif event.key == SDLK_3:
+                DEFINES.current_weapon_mode = DEFINES.WEAPON_RAILGUN
+                print("SWITCH WEAPON: RAILGUN")
+
         elif event.type == SDL_KEYUP:
             if event.key == SDLK_a:
                 self.key_map['a'] = 0
             elif event.key == SDLK_d:
                 self.key_map['d'] = 0
-        self.state_machine.handle_state_event(('INPUT', event))
 
+        if event.type == SDL_MOUSEBUTTONDOWN and event.button == SDL_BUTTON_LEFT:
+            self.mouse_button_down = True  # 👈 이제 총 모드에서도 이게 실행됩니다!
+            print("MOUSE DOWN CHECK")  # 디버깅
+
+            # 무기별 특수 동작 (검, 레일건)
+            if DEFINES.current_weapon_mode == DEFINES.WEAPON_SWORD:
+                self.sword.handle_event(event)
+            elif DEFINES.current_weapon_mode == DEFINES.WEAPON_RAILGUN:
+                self.railgun.handle_event(event)
+
+        elif event.type == SDL_MOUSEBUTTONUP and event.button == SDL_BUTTON_LEFT:
+            self.mouse_button_down = False  # 👈 떼는 것도 밖으로!
+
+            if DEFINES.current_weapon_mode == DEFINES.WEAPON_RAILGUN:
+                self.railgun.handle_event(event)
+
+            # 3. 상태 머신 전달
+        self.state_machine.handle_state_event(('INPUT', event))
     def fire(self):
         self.gun.try_fire(game_world.world[1])
 
