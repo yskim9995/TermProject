@@ -84,65 +84,60 @@ def init_static_objects():
 def reset_stage():
     global player, current_portal
 
-    # 1. 움직이는 객체들(Layer 1 이상)만 비우기
-    # Layer 0 (배경, 벽)은 건드리지 않음!
+    # 1. 움직이는 객체들 비우기
     game_world.world[1] = []
-    game_world.world[2] = []  # 총알 등이 있다면 비움
-    game_world.world[3] = []  # 이펙트 등이 있다면 비움
+    game_world.world[2] = []
+    game_world.world[3] = []
 
-    # 🌟🌟 2. 충돌 정보 싹 비우기 🌟🌟
-    # 이걸 안 하면 이전 스테이지 몬스터 정보가 남아서 에러 남
+    # 2. 충돌 정보 초기화
     game_world.clear_collision_pairs()
 
-    # ------------------------------------------------------
-    # 3. 플레이어 생성 및 총 등록
-    # ------------------------------------------------------
+    # 3. 객체 생성
     player = Player(16, 90)
     import server
     server.player = player
     player.scale = [3.0, 3.0]
     game_world.add_object(player, 1)
-    # game_world.add_object(player.gun, 1)  # 플레이어가 가진 총 등록
 
-    # ------------------------------------------------------
-    # 4. 포탈 및 몬스터 생성
-    # ------------------------------------------------------
+    # 포탈
     current_portal = Portal(DEFINES.SCW - 50, 100)
     game_world.add_object(current_portal, 1)
 
+    # 몬스터
     enemys = [Enemy() for i in range(10)]
     game_world.add_objects(enemys, 1)
 
-    # ------------------------------------------------------
-    # 5. UI 생성
-    # ------------------------------------------------------
+    # UI
     player_hp_bar = hpbar.Hpbar(player)
     game_world.add_object(player_hp_bar, 0)
 
     # ------------------------------------------------------
-    # 6. 충돌 쌍 재등록 (여기가 제일 중요!)
+    # 🌟🌟 4. 충돌 쌍 재등록 (최적화됨) 🌟🌟
     # ------------------------------------------------------
 
-    # (1) Layer 0에 살아남아 있는 '벽(Grass)'들을 찾아서 다시 등록해야 함
-    # collision_pairs를 비웠기 때문에, 벽들도 다시 넣어줘야 충돌이 됨
+    # (1) 벽(Grass) 등록: 벽은 한 번만 훑어서 "나는 땅이야(b)"라고만 등록
     if len(game_world.world) > 0:
         for obj in game_world.world[0]:
-            if isinstance(obj, Grass):  # Grass 클래스인지 확인
-                game_world.addcollide_pairs('player:ground', player, obj)
-                for enemy in enemys:
-                    game_world.addcollide_pairs('enemy:ground', enemy, obj)
+            if isinstance(obj, Grass):
+                # None, obj -> 나는 충돌의 '오른쪽(당하는 쪽)' 이다
+                game_world.addcollide_pairs('player:ground', None, obj)
+                game_world.addcollide_pairs('enemy:ground', None, obj)
 
-    # (2) 플레이어 vs 몬스터
+    # (2) 플레이어 등록
+    game_world.addcollide_pairs('player:ground', player, None)
+    game_world.addcollide_pairs('player:portal', player, current_portal)
+    game_world.addcollide_pairs('player:enemy_attack', player, None)
+
+    # (3) 몬스터 등록: 몬스터 루프는 따로 돌립니다.
     for enemy in enemys:
         game_world.addcollide_pairs('player:enemy', player, enemy)
         game_world.addcollide_pairs('enemy:bullet', enemy, None)
         game_world.addcollide_pairs('sword:enemy', None, enemy)
-        game_world.addcollide_pairs('player:enemy_attack', player, None)
-        game_world.addcollide_pairs('enemy:ground', enemy, None)  # (몬스터 점프 등을 위해 필요 시)
 
-    # (3) 플레이어 vs 포탈
-    game_world.addcollide_pairs('player:portal', player, current_portal)
+        # 🌟 여기서 enemy만 등록하면, 위 (1)번에서 등록한 벽들과 자동으로 매칭됨
+        game_world.addcollide_pairs('enemy:ground', enemy, None)
 
+    print("Stage Reset Complete.")
 
 def reset_world():
     bg =  Background()
