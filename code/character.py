@@ -218,6 +218,10 @@ class Run:
         pass
 
     def do(self, dt):
+        self.Player.walk_timer -= dt
+        if self.Player.walk_timer <= 0:  # 시간이 다 되면?
+            self.Player.sfx_walk.play()  # 소리 재생!
+            self.Player.walk_timer = 0.3  # 다시 0.3초로 설정 (0.2~0.4로 조절 가능)
         # 1. 애니메이션 (RunImages는 6장)
         self.Player.frame_time += dt
         time_per_frame = 1.0 / ANIMATION_SPEED_FPS
