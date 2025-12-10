@@ -687,18 +687,15 @@ class Boss:
         Boss.hp_fg.draw_to_origin(sx - w // 2, sy + y_off, w * ratio, h)
 
     def get_bb(self):
-        # 🌟 수치를 조절해서 몸에 딱 맞추세요
+        # 1. 좌우 너비
+        half_width = 60
 
-        # 1. 좌우 너비 (중심에서 얼마나 넓은지)
-        half_width = 100  # 기존보다 조금 줄임 (너무 뚱뚱하면 100 -> 60)
+        # 2. 머리 높이
+        top_height = 90
 
-        # 2. 위쪽 높이 (머리)
-        top_height = 90  # 머리 위 판정
-
-        # 3. [핵심] 아래쪽 높이 (발) - 이 숫자를 줄여야 땅에 붙습니다!
-        # 이 값이 클수록 보스가 공중부양합니다.
-        # 예: 100이었을 때 떠있었다면 -> 50이나 40으로 줄이세요.
-        bottom_height = 30
+        # 🌟 [수정] 발 높이 (이 값을 키우면 보스가 위로 올라갑니다)
+        # 아까 40으로 줄였던 것을 100~120 정도로 다시 늘려보세요.
+        bottom_height = 110
 
         return self.x - half_width, self.y - bottom_height, self.x + half_width, self.y + top_height
 
