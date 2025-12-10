@@ -689,6 +689,7 @@ class Boss:
     def get_bb(self):
         w = 20 * self.scale[0]
         h = 32 * self.scale[1]
+
         return self.x - w, self.y - h / 2, self.x + w, self.y + h / 2
 
     def handle_collision(self, group, other):
