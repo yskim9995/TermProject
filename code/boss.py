@@ -557,11 +557,13 @@ class Attack3:
         frame_x = frame_idx * 32
 
         if self.boss.face_dir == 1:
-            self.boss.image.clip_draw(frame_x, BOTTOM_ROW, 32, 16, sx, sy, 32 * self.boss.scale[0],
-                                      16 * self.boss.scale[1])
-        else:
+            # 오른쪽을 볼 때 -> 반전시켜서 그림 ('h' 추가)
             self.boss.image.clip_composite_draw(frame_x, BOTTOM_ROW, 32, 16, 0, 'h', sx, sy, 32 * self.boss.scale[0],
                                                 16 * self.boss.scale[1])
+        else:
+            # 왼쪽을 볼 때 -> 그냥 그림 (원래 코드를 이쪽으로 이동)
+            self.boss.image.clip_draw(frame_x, BOTTOM_ROW, 32, 16, sx, sy, 32 * self.boss.scale[0],
+                                      16 * self.boss.scale[1])
 
 class Hit:
     def __init__(self, boss):
