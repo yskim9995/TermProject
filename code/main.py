@@ -202,7 +202,7 @@ def update_world(dt):
     game_world.handle_collision()
 
     pass
-
+#.
 
 def render_world():
     clear_canvas()
