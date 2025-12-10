@@ -145,7 +145,7 @@ class ChargingEffect:
 class RailBeam:
     images = None
 
-    def __init__(self, x, y, angle, owner, damage=100):
+    def __init__(self, x, y, angle, owner, damage=10):
         self.x, self.y = x, y
         self.angle = angle
         self.owner = owner
