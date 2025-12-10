@@ -7,27 +7,22 @@ import DEFINES
 from state_machine import StateMachine
 
 
-# 기존 공격 효과들 임포트 (파일명을 맞춰주세요)
-# 만약 enemy.py, enemy2.py에 클래스가 있다면 import해서 써도 됩니다.
-# 여기서는 보스 전용으로 조금 더 크게 새로 정의했습니다.
-
 # -------------------------------------------------------------------------
-# 1. 오로라 이펙트 (보스 전용 필살기)
+# 1. 오로라 이펙트 (Attack 3)
 # -------------------------------------------------------------------------
 class AuroraEffect:
     image = None
 
-    def __init__(self, x, y, owner):
+    def __init__(self, x, y):
         self.x, self.y = x, y
-        self.owner = owner
-        self.lifetime = 2.0  # 2초간 지속
+        self.lifetime = 1.5  # 1.5초 지속
         self.spawn_time = get_time()
-        self.damage = 50  # 강력한 데미지
+        self.damage = 30  # 데미지
+        self.warning_time = 0.5  # 0.5초 동안은 공격 판정 없음 (예고)
 
-        # 오로라 이미지가 없으면 임시로 레일건 빔 등을 크게 사용
         if AuroraEffect.image is None:
             try:
-                # 🌟 오로라 이미지 (세로로 긴 빔 추천)
+                # 레이저 이미지를 오로라처럼 사용 (세로로 길게)
                 AuroraEffect.image = load_image('resource/Sprites/GunsPack/effect/Laser_0.png')
             except:
                 pass
@@ -38,35 +33,45 @@ class AuroraEffect:
 
     def draw(self):
         sx, sy = server.world_to_screen(self.x, self.y)
-        # 🌟 거대한 세로 빔 (폭 100, 높이 600)
-        # 빔이 위아래로 일렁이게 하려면 random을 섞을 수도 있음
-        if AuroraEffect.image:
-            # 회전 90도(수직)
-            AuroraEffect.image.rotate_draw(math.pi / 2, sx, sy, 600, 150)
 
-        if DEFINES.bbvisible:
-            draw_rectangle(*self.get_bb())
+        elapsed = get_time() - self.spawn_time
+
+        # 예고 시간 동안은 투명하게 깜빡임
+        if elapsed < self.warning_time:
+            if int(elapsed * 20) % 2 == 0:  # 깜빡깜빡
+                draw_rectangle(sx - 50, sy - 400, sx + 50, sy + 400)  # 경고 박스
+        else:
+            # 실제 공격 (이미지 그리기)
+            if AuroraEffect.image:
+                # 90도 회전해서 세로로 세움, 크기(600x100)
+                AuroraEffect.image.rotate_draw(math.pi / 2, sx, sy, 800, 150)
+
+            if DEFINES.bbvisible:
+                draw_rectangle(*self.get_bb())
 
     def get_bb(self):
-        # 빔의 범위
-        return self.x - 75, self.y - 300, self.x + 75, self.y + 300
+        # 예고 시간엔 충돌 없음
+        if get_time() - self.spawn_time < self.warning_time:
+            return 0, 0, 0, 0
+        return self.x - 75, self.y - 400, self.x + 75, self.y + 400
 
     def handle_collision(self, group, other):
         pass
 
 
 # -------------------------------------------------------------------------
-# 2. 보스 독구름 (Enemy2보다 더 크고 오래감)
+# 2. 보스 독구름 (Attack 2)
 # -------------------------------------------------------------------------
 class BossPoison:
     image = None
 
     def __init__(self, x, y):
         self.x, self.y = x, y
-        self.lifetime = 4.0
+        self.lifetime = 5.0  # 5초 지속 (김)
         self.spawn_time = get_time()
         self.damage = 2
-        self.scale = 3.0  # 엄청 큼
+        self.scale = 4.0  # 크기 4배
+
         self.frame = 0
         self.frame_time = 0.0
         self.total_frames = 10
@@ -80,11 +85,15 @@ class BossPoison:
         if BossPoison.image:
             self.sprite_width = BossPoison.image.w // self.total_frames
             self.sprite_height = BossPoison.image.h
+        else:
+            self.sprite_width = 0
+            self.sprite_height = 0
 
     def update(self, dt):
         if get_time() - self.spawn_time > self.lifetime:
             game_world.remove_object(self)
             return
+
         self.frame_time += dt
         if self.frame_time >= 0.1:
             self.frame_time = 0
@@ -94,8 +103,10 @@ class BossPoison:
         if BossPoison.image is None: return
         sx, sy = server.world_to_screen(self.x, self.y)
         left = self.frame * self.sprite_width
-        BossPoison.image.clip_draw(left, 0, self.sprite_width, self.sprite_height, sx, sy, 64 * self.scale,
-                                   64 * self.scale)
+
+        BossPoison.image.clip_draw(left, 0, self.sprite_width, self.sprite_height,
+                                   sx, sy, 64 * self.scale, 64 * self.scale)
+
         if DEFINES.bbvisible: draw_rectangle(*self.get_bb())
 
     def get_bb(self):
@@ -107,7 +118,7 @@ class BossPoison:
 
 
 # -------------------------------------------------------------------------
-# 3. 보스 근접 공격 (Enemy1 스타일)
+# 3. 보스 스매시 (Attack 1 - 근접)
 # -------------------------------------------------------------------------
 class BossSmash:
     def __init__(self, x, y, face_dir):
@@ -116,8 +127,8 @@ class BossSmash:
         self.exist_time = 0.0
         self.LIFETIME = 0.3
         self.damage = 20
-        self.width = 150  # 범위 큼
-        self.height = 150
+        self.width = 200  # 범위 넓음
+        self.height = 200
 
     def update(self, dt):
         self.exist_time += dt
@@ -131,16 +142,21 @@ class BossSmash:
             draw_rectangle(sl, sb, sr, st)
 
     def get_bb(self):
-        offset_x = 80 * self.face_dir
-        return self.x + offset_x - self.width // 2, self.y - self.height // 2, self.x + offset_x + self.width // 2, self.y + self.height // 2
+        # 보스 앞쪽으로 충돌 박스 생성
+        offset_x = 100 * self.face_dir
+        return self.x + offset_x - self.width // 2, self.y - self.height // 2, \
+               self.x + offset_x + self.width // 2, self.y + self.height // 2
 
     def handle_collision(self, group, other):
         if group == 'player:enemy_attack': game_world.remove_object(self)
 
 
+# ... (상단 이펙트 클래스들은 그대로 두세요) ...
+
 # -------------------------------------------------------------------------
-# 보스 상태 클래스들
+# 보스 상태 클래스들 (Enemy1, 2 스타일로 draw 개별 구현)
 # -------------------------------------------------------------------------
+
 # 이벤트 정의
 def time_out(e): return e[0] == 'TIME_OUT'
 
@@ -157,31 +173,45 @@ def detect_player(e): return e[0] == 'DETECT'
 def reach_attack_range(e): return e[0] == 'ATTACK_RANGE'
 
 
-# 공격 타입 이벤트
-def attack_1(e): return e[0] == 'ATTACK_1'  # 근접
+def attack_1(e): return e[0] == 'ATTACK_1'
 
 
-def attack_2(e): return e[0] == 'ATTACK_2'  # 독
+def attack_2(e): return e[0] == 'ATTACK_2'
 
 
-def attack_3(e): return e[0] == 'ATTACK_3'  # 오로라
+def attack_3(e): return e[0] == 'ATTACK_3'
 
 
 class Idle:
-    def __init__(self, boss): self.boss = boss
+    def __init__(self, boss):
+        self.boss = boss
 
     def enter(self, e):
         self.boss.frame = 0
         self.boss.wait_time = get_time()
 
-    def exit(self, e): pass
+    def exit(self, e):
+        pass
 
     def do(self, dt):
-        # 보스는 쉬지 않고 플레이어를 찾음
-        if get_time() - self.boss.wait_time > 1.0:
+        if get_time() - self.boss.wait_time > 0.1:
             self.boss.state_machine.handle_state_event(('DETECT', None))
 
-    def draw(self): self.boss.draw_generic()
+    # 🌟 Enemy처럼 개별 draw 구현
+    def draw(self):
+        sx, sy = server.world_to_screen(self.boss.x, self.boss.y)
+
+        # 🌟 여기서 사용할 스프라이트 행(Row) 선택 가능
+        # 예: 0번째 줄 사용 (32 * 0)
+        BOTTOM_ROW = 0
+        frame_x = self.boss.frame * 32
+
+        if self.boss.face_dir == 1:
+            self.boss.image.clip_draw(frame_x, BOTTOM_ROW, 32, 32, sx, sy, 32 * self.boss.scale[0],
+                                      32 * self.boss.scale[1])
+        else:
+            self.boss.image.clip_composite_draw(frame_x, BOTTOM_ROW, 32, 32, 0, 'h', sx, sy, 32 * self.boss.scale[0],
+                                                32 * self.boss.scale[1])
 
 
 class Trace:
@@ -190,35 +220,51 @@ class Trace:
 
     def enter(self, e):
         self.boss.frame = 0
+        self.frame_time = 0
 
     def exit(self, e):
         pass
 
     def do(self, dt):
-        # 플레이어 추격
+        # 애니메이션
+        self.frame_time += dt
+        if self.frame_time >= 0.1:
+            self.frame_time = 0
+            self.boss.frame = (self.boss.frame + 1) % 8
+
+        # 추격 로직
         if self.boss.target:
             dist = math.sqrt((self.boss.x - self.boss.target.x) ** 2 + (self.boss.y - self.boss.target.y) ** 2)
             self.boss.dir = 1 if self.boss.target.x > self.boss.x else -1
             self.boss.face_dir = self.boss.dir
             self.boss.x += self.boss.dir * self.boss.speed * dt
 
-            # 공격 범위(150px) 안에 들어오면 패턴 결정
-            if dist <= 150:
+            if dist <= 200:
                 self.boss.state_machine.handle_state_event(('ATTACK_RANGE', None))
 
+    # 🌟 Enemy처럼 개별 draw 구현
     def draw(self):
-        self.boss.draw_generic()
+        sx, sy = server.world_to_screen(self.boss.x, self.boss.y)
+
+        # 🌟 이동 모션은 다른 줄을 쓰고 싶다면 여기서 변경 (예: 32 * 1)
+        # 지금은 이미지가 한 줄이라 가정하고 0 사용
+        BOTTOM_ROW = 0
+        frame_x = self.boss.frame * 32
+
+        if self.boss.face_dir == 1:
+            self.boss.image.clip_draw(frame_x, BOTTOM_ROW, 32, 32, sx, sy, 32 * self.boss.scale[0],
+                                      32 * self.boss.scale[1])
+        else:
+            self.boss.image.clip_composite_draw(frame_x, BOTTOM_ROW, 32, 32, 0, 'h', sx, sy, 32 * self.boss.scale[0],
+                                                32 * self.boss.scale[1])
 
 
 class DecideAttack:
-    # 🌟 어떤 공격을 할지 랜덤으로 고르는 찰나의 순간
     def __init__(self, boss):
         self.boss = boss
 
     def enter(self, e):
-        # 1: 근접, 2: 독, 3: 오로라
         choice = random.randint(1, 3)
-        print(f"Boss Chooses Attack {choice}!")
         if choice == 1:
             self.boss.state_machine.handle_state_event(('ATTACK_1', None))
         elif choice == 2:
@@ -233,10 +279,11 @@ class DecideAttack:
         pass
 
     def draw(self):
-        self.boss.draw_generic()
+        # 결정 순간은 아주 짧으므로 Idle과 동일하게 그림
+        sx, sy = server.world_to_screen(self.boss.x, self.boss.y)
+        self.boss.image.clip_draw(0, 0, 32, 32, sx, sy, 32 * self.boss.scale[0], 32 * self.boss.scale[1])
 
 
-# --- 공격 1: 근접 (Enemy1 스타일) ---
 class Attack1:
     def __init__(self, boss):
         self.boss = boss
@@ -251,20 +298,28 @@ class Attack1:
 
     def do(self, dt):
         self.timer += dt
-        if self.timer > 0.5 and not self.attacked:  # 0.5초 딜레이 후 공격
+        if self.timer > 0.5 and not self.attacked:
             smash = BossSmash(self.boss.x, self.boss.y, self.boss.face_dir)
             game_world.add_object(smash, 2)
             game_world.addcollide_pairs('player:enemy_attack', None, smash)
             self.attacked = True
-
-        if self.timer > 1.0:  # 1초 후 복귀
+        if self.timer > 1.0:
             self.boss.state_machine.handle_state_event(('TIME_OUT', None))
 
     def draw(self):
-        self.boss.draw_generic()
+        sx, sy = server.world_to_screen(self.boss.x, self.boss.y)
+        # 공격 모션이 있다면 행 변경 (예: 32 * 2)
+        BOTTOM_ROW = 0
+        frame_x = self.boss.frame * 32
+
+        if self.boss.face_dir == 1:
+            self.boss.image.clip_draw(frame_x, BOTTOM_ROW, 32, 32, sx, sy, 32 * self.boss.scale[0],
+                                      32 * self.boss.scale[1])
+        else:
+            self.boss.image.clip_composite_draw(frame_x, BOTTOM_ROW, 32, 32, 0, 'h', sx, sy, 32 * self.boss.scale[0],
+                                                32 * self.boss.scale[1])
 
 
-# --- 공격 2: 독구름 (Enemy2 스타일) ---
 class Attack2:
     def __init__(self, boss):
         self.boss = boss
@@ -279,20 +334,27 @@ class Attack2:
 
     def do(self, dt):
         self.timer += dt
-        if self.timer > 0.5 and not self.attacked:
+        if self.timer > 0.3 and not self.attacked:
             poison = BossPoison(self.boss.x, self.boss.y)
             game_world.add_object(poison, 2)
             game_world.addcollide_pairs('player:poison', None, poison)
             self.attacked = True
-
         if self.timer > 1.0:
             self.boss.state_machine.handle_state_event(('TIME_OUT', None))
 
     def draw(self):
-        self.boss.draw_generic()
+        # Attack1과 동일 구조 (필요시 모션 변경)
+        sx, sy = server.world_to_screen(self.boss.x, self.boss.y)
+        BOTTOM_ROW = 0
+        frame_x = self.boss.frame * 32
+        if self.boss.face_dir == 1:
+            self.boss.image.clip_draw(frame_x, BOTTOM_ROW, 32, 32, sx, sy, 32 * self.boss.scale[0],
+                                      32 * self.boss.scale[1])
+        else:
+            self.boss.image.clip_composite_draw(frame_x, BOTTOM_ROW, 32, 32, 0, 'h', sx, sy, 32 * self.boss.scale[0],
+                                                32 * self.boss.scale[1])
 
 
-# --- 공격 3: 오로라 (신규 패턴) ---
 class Attack3:
     def __init__(self, boss):
         self.boss = boss
@@ -301,41 +363,56 @@ class Attack3:
         self.boss.frame = 0
         self.timer = 0
         self.attacked = False
-        print("Boss Casts Aurora!")
 
     def exit(self, e):
         pass
 
     def do(self, dt):
         self.timer += dt
-        # 오로라는 시전 시간이 좀 김 (1초 딜레이)
-        if self.timer > 1.0 and not self.attacked:
-            # 플레이어 위치에 오로라 소환!
-            target_x = self.boss.target.x if self.boss.target else self.boss.x + 100 * self.boss.face_dir
-            aurora = AuroraEffect(target_x, self.boss.y, self.boss)
+        if self.timer > 0.5 and not self.attacked:
+            target_x = self.boss.target.x if self.boss.target else self.boss.x + 150 * self.boss.face_dir
+            aurora = AuroraEffect(target_x, self.boss.y)
             game_world.add_object(aurora, 3)
             game_world.addcollide_pairs('player:enemy_attack', None, aurora)
             self.attacked = True
-
-        if self.timer > 2.0:  # 2초 후 복귀
+        if self.timer > 2.0:
             self.boss.state_machine.handle_state_event(('TIME_OUT', None))
 
     def draw(self):
-        self.boss.draw_generic()
+        # Attack1과 동일 구조
+        sx, sy = server.world_to_screen(self.boss.x, self.boss.y)
+        BOTTOM_ROW = 0
+        frame_x = self.boss.frame * 32
+        if self.boss.face_dir == 1:
+            self.boss.image.clip_draw(frame_x, BOTTOM_ROW, 32, 32, sx, sy, 32 * self.boss.scale[0],
+                                      32 * self.boss.scale[1])
+        else:
+            self.boss.image.clip_composite_draw(frame_x, BOTTOM_ROW, 32, 32, 0, 'h', sx, sy, 32 * self.boss.scale[0],
+                                                32 * self.boss.scale[1])
 
 
 class Hit:
-    def __init__(self, boss): self.boss = boss
+    def __init__(self, boss):
+        self.boss = boss
 
-    def enter(self, e): self.timer = 0
+    def enter(self, e):
+        self.timer = 0
 
-    def exit(self, e): pass
+    def exit(self, e):
+        pass
 
     def do(self, dt):
         self.timer += dt
-        if self.timer > 0.5: self.boss.state_machine.handle_state_event(('TIME_OUT', None))
+        if self.timer > 0.2: self.boss.state_machine.handle_state_event(('TIME_OUT', None))
 
-    def draw(self): self.boss.draw_generic()
+    def draw(self):
+        sx, sy = server.world_to_screen(self.boss.x, self.boss.y)
+        # 피격 시 보통 0번 프레임 사용
+        if self.boss.face_dir == 1:
+            self.boss.image.clip_draw(0, 0, 32, 32, sx, sy, 32 * self.boss.scale[0], 32 * self.boss.scale[1])
+        else:
+            self.boss.image.clip_composite_draw(0, 0, 32, 32, 0, 'h', sx, sy, 32 * self.boss.scale[0],
+                                                32 * self.boss.scale[1])
 
 
 class Die:
@@ -353,7 +430,7 @@ class Die:
 
 
 # -------------------------------------------------------------------------
-# 보스 본체 클래스
+# Boss Main Class
 # -------------------------------------------------------------------------
 class Boss:
     image = None
@@ -362,27 +439,31 @@ class Boss:
 
     def __init__(self, x=1500, y=150):
         self.x, self.y = x, y
-        self.scale = [5.0, 5.0]  # 🌟 크기 매우 큼
-        self.speed = 100.0  # 이동 속도는 느리게 (위압감)
-        self.max_hp = 500  # 체력 많음
+        self.scale = [5.0, 5.0]
+        self.speed = 80.0
+        self.max_hp = 1000
         self.hp = self.max_hp
         self.face_dir = -1
         self.dir = 0
+        self.frame = 0  # 프레임 관리
 
         self.width = 32
         self.height = 32
 
-        self.target = None  # 플레이어
+        self.target = None
 
         if Boss.image is None:
-            # 보스 이미지 (없으면 버섯 확대)
-            Boss.image = load_image('resource/Sprites/Free Mushrooms/Mushroom_spike.png')
+            try:
+                Boss.image = load_image('resource/Sprites/Free Mushrooms/Mushroom_spike.png')
+            except:
+                Boss.image = load_image('resource/Sprites/Free Mushrooms/Mushroom_Reg.png')
+
             Boss.hp_bg = load_image('resource/Sprites/Free Mushrooms/btl_gage_hp_back.png')
             Boss.hp_fg = load_image('resource/Sprites/Free Mushrooms/btl_gage_hp.png')
 
         self.IDLE = Idle(self)
         self.TRACE = Trace(self)
-        self.DECIDE = DecideAttack(self)  # 공격 선택 상태
+        self.DECIDE = DecideAttack(self)
         self.ATTACK1 = Attack1(self)
         self.ATTACK2 = Attack2(self)
         self.ATTACK3 = Attack3(self)
@@ -392,15 +473,11 @@ class Boss:
         self.state_machine = StateMachine(self.IDLE, {
             self.IDLE: {detect_player: self.TRACE, hit: self.HIT, dead: self.DIE},
             self.TRACE: {reach_attack_range: self.DECIDE, hit: self.HIT, dead: self.DIE},
-
-            # 공격 결정 상태에서 랜덤 분기
             self.DECIDE: {attack_1: self.ATTACK1, attack_2: self.ATTACK2, attack_3: self.ATTACK3, hit: self.HIT,
                           dead: self.DIE},
-
             self.ATTACK1: {time_out: self.TRACE, hit: self.HIT, dead: self.DIE},
             self.ATTACK2: {time_out: self.TRACE, hit: self.HIT, dead: self.DIE},
             self.ATTACK3: {time_out: self.TRACE, hit: self.HIT, dead: self.DIE},
-
             self.HIT: {time_out: self.TRACE, dead: self.DIE},
             self.DIE: {}
         })
@@ -411,7 +488,7 @@ class Boss:
         self.state_machine.update(dt)
 
     def draw(self):
-        self.state_machine.draw()
+        self.state_machine.draw()  # 🌟 이제 각 상태의 draw()가 호출됨
         self.draw_hp()
         if DEFINES.bbvisible:
             l, b, r, t = self.get_bb()
@@ -419,21 +496,13 @@ class Boss:
             sr, st = server.world_to_screen(r, t)
             draw_rectangle(sl, sb, sr, st)
 
-    # 상태들에서 공통으로 쓰는 그리기 함수
-    def draw_generic(self):
-        sx, sy = server.world_to_screen(self.x, self.y)
-        # 임시로 프레임 0 고정 (애니메이션이 있다면 self.frame 사용)
-        if self.face_dir == 1:
-            self.image.clip_draw(0, 0, 32, 32, sx, sy, 32 * self.scale[0], 32 * self.scale[1])
-        else:
-            self.image.clip_composite_draw(0, 0, 32, 32, 0, 'h', sx, sy, 32 * self.scale[0], 32 * self.scale[1])
+    # 🌟 draw_generic 함수 삭제함 (이제 각 상태가 직접 그림)
 
     def draw_hp(self):
         sx, sy = server.world_to_screen(self.x, self.y)
         ratio = clamp(0, self.hp / self.max_hp, 1)
-        # 보스니까 HP바도 큼
         w, h = 128, 16
-        y_off = 50 * self.scale[1]
+        y_off = 60 * self.scale[1]
         Boss.hp_bg.draw_to_origin(sx - w // 2, sy + y_off, w, h)
         Boss.hp_fg.draw_to_origin(sx - w // 2, sy + y_off, w * ratio, h)
 
