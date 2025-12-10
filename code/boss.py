@@ -523,6 +523,13 @@ class Attack3:
         self.timer = 0
         self.attacked = False
 
+        # 🌟 [추가] 공격 시작 시 플레이어를 바라보도록 방향(face_dir) 설정
+        if self.boss.target:
+            if self.boss.target.x > self.boss.x:
+                self.boss.face_dir = 1  # 오른쪽
+            else:
+                self.boss.face_dir = -1  # 왼쪽
+        self.boss.dir = self.boss.face_dir
     def exit(self, e):
         pass
 
@@ -544,7 +551,6 @@ class Attack3:
             self.boss.state_machine.handle_state_event(('TIME_OUT', None))
 
     def draw(self):
-        # (Draw 로직은 이전과 동일하게 유지)
         sx, sy = server.world_to_screen(self.boss.x, self.boss.y)
         BOTTOM_ROW = 32 * 2
         frame_idx = int(self.timer * 8) % 8
@@ -682,7 +688,9 @@ class Boss:
         sx, sy = server.world_to_screen(self.x, self.y)
         ratio = clamp(0, self.hp / self.max_hp, 1)
         w, h = 128, 16
-        y_off = 60 * self.scale[1]
+
+        y_off = 20 * self.scale[1]
+
         Boss.hp_bg.draw_to_origin(sx - w // 2, sy + y_off, w, h)
         Boss.hp_fg.draw_to_origin(sx - w // 2, sy + y_off, w * ratio, h)
 
@@ -693,9 +701,10 @@ class Boss:
         # 2. 머리 높이
         top_height = 90
 
-        # 🌟 [수정] 발 높이 (이 값을 키우면 보스가 위로 올라갑니다)
-        # 아까 40으로 줄였던 것을 100~120 정도로 다시 늘려보세요.
-        bottom_height = 110
+        # 🌟 [수정] 발 높이 (값을 키울수록 보스가 위로 올라갑니다)
+        # 현재 110에서 -> 150 정도로 올려보세요.
+        # (만약 여전히 낮으면 160, 170으로 계속 키우시면 됩니다)
+        bottom_height = 150
 
         return self.x - half_width, self.y - bottom_height, self.x + half_width, self.y + top_height
 
