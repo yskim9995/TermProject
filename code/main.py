@@ -88,177 +88,176 @@ def init_static_objects():
 def reset_stage():
     global player, current_portal, current_stage, enemys, boss
 
-    # 1. 게임 월드 객체 비우기 (Layer 1: 객체, Layer 2: 투사체 등)
-    # Layer 0(배경/바닥)은 init_static_objects에서 한 번만 생성하므로 유지
+    # 1. 게임 월드 객체 비우기
     game_world.world[1] = []
     game_world.world[2] = []
-    game_world.world[3] = []  # 필요하다면 비움
+    game_world.world[3] = []
 
-    # 2. 충돌 정보 초기화
     game_world.clear_collision_pairs()
 
-    # 3. 플레이어 생성
+    # 플레이어 및 기본 UI 생성
     player = Player(16, 90)
     import server
     server.player = player
     player.scale = [3.0, 3.0]
     game_world.add_object(player, 1)
 
-    # UI 생성
     player_hp_bar = hpbar.Hpbar(player)
     game_world.add_object(player_hp_bar, 0)
 
-    # 총 생성
     _gun = Gun(player.x + 16, player.y, player)
     _gun.scale = [2.0, 2.0]
     game_world.add_object(_gun, 1)
 
     # ------------------------------------------------------
-    # 🌟🌟 스테이지별 몬스터 & 포탈 소환 🌟🌟
+    # 🌟🌟 몬스터 대량 소환! 🌟🌟
     # ------------------------------------------------------
     enemys = []
     current_portal = None
     boss = None
 
     if current_stage == 1:
-        print(f"=== STAGE {current_stage} : Enemy 1 ===")
-        # Enemy 1 (enemy.py) 5마리 소환
-        for i in range(5):
-            mob = Enemy(500 + i * 200, 90)  # 바닥 높이에 맞춰 y좌표 조정 (90~100)
+        print(f"=== STAGE {current_stage} : Enemy 1 (대량) ===")
+        # 🌟 5마리 -> 10마리로 증가
+        # 간격도 150으로 좁혀서 촘촘하게 배치 (500 ~ 2000 구간 커버)
+        for i in range(10):
+            mob = Enemy(500 + i * 150, 90)
             game_world.add_object(mob, 1)
             enemys.append(mob)
 
-        # 🌟 포탈을 맵 끝(보스 위치)에 배치
-        current_portal = Portal(2350, 100)
+        current_portal = Portal(2350, 90)
         game_world.add_object(current_portal, 1)
 
     elif current_stage == 2:
-        print(f"=== STAGE {current_stage} : Enemy 2 ===")
-        # Enemy 2 (enemy2.py) 5마리 소환
-        for i in range(5):
-            mob = Enemy2(500 + i * 200, 90)
+        print(f"=== STAGE {current_stage} : Enemy 2 (대량) ===")
+        # 🌟 5마리 -> 10마리로 증가
+        for i in range(10):
+            mob = Enemy2(500 + i * 150, 90)
             game_world.add_object(mob, 1)
             enemys.append(mob)
 
-        # 🌟 포탈을 맵 끝에 배치
-        current_portal = Portal(2350, 100)
+        current_portal = Portal(2350, 90)
         game_world.add_object(current_portal, 1)
 
     elif current_stage == 3:
-        print(f"=== STAGE {current_stage} : BOSS FIGHT ===")
-        # 잡몹 섞어서 소환
-        mob1 = Enemy(500, 90)
-        mob2 = Enemy2(700, 90)
-        game_world.add_object(mob1, 1);
-        enemys.append(mob1)
-        game_world.add_object(mob2, 1);
-        enemys.append(mob2)
+        print(f"=== STAGE {current_stage} : BOSS FIGHT (부하들 등장) ===")
 
-        # 🌟 대망의 보스 소환!
-        boss = Boss(2000, 200)
+        # 🌟 보스 호위 병력 6마리 (Enemy 3 + Enemy2 3)
+        for i in range(3):
+            # Enemy 1 배치
+            mob1 = Enemy(400 + i * 300, 90)
+            game_world.add_object(mob1, 1)
+            enemys.append(mob1)
+
+            # Enemy 2 배치 (사이사이에)
+            mob2 = Enemy2(550 + i * 300, 90)
+            game_world.add_object(mob2, 1)
+            enemys.append(mob2)
+
+        # 보스 소환
+        boss = Boss(2000, 110)
         game_world.add_object(boss, 1)
 
-        # 마지막 스테이지는 포탈 없음 (current_portal = None)
+        # 3스테이지 포탈 없음
 
     # ------------------------------------------------------
-    # 🌟🌟 충돌 쌍 등록 🌟🌟
+    # 🌟 충돌 등록 (변경 없음, 그대로 유지) 🌟
     # ------------------------------------------------------
 
-    # (1) 바닥(Grass) 재등록
+    # (1) 바닥
     if len(game_world.world) > 0:
         for obj in game_world.world[0]:
             if isinstance(obj, Grass):
                 game_world.addcollide_pairs('player:ground', None, obj)
                 game_world.addcollide_pairs('enemy:ground', None, obj)
 
-    # (2) 플레이어 관련
+    # (2) 플레이어
     game_world.addcollide_pairs('player:ground', player, None)
     game_world.addcollide_pairs('player:enemy_attack', player, None)
     game_world.addcollide_pairs('player:poison', player, None)
 
-    # (3) 포탈 (포탈이 있을 때만)
     if current_portal:
         game_world.addcollide_pairs('player:portal', player, current_portal)
 
-    # (4) 몬스터 (Enemy, Enemy2)
+    # (3) 몬스터들
     for enemy in enemys:
         game_world.addcollide_pairs('player:enemy', player, enemy)
         game_world.addcollide_pairs('enemy:bullet', enemy, None)
         game_world.addcollide_pairs('sword:enemy', None, enemy)
         game_world.addcollide_pairs('enemy:ground', enemy, None)
 
-    # (5) 보스 (3스테이지일 때만)
+    # (4) 보스
     if boss:
-        # 보스도 'enemy' 그룹으로 묶어서 처리
         game_world.addcollide_pairs('player:enemy', player, boss)
         game_world.addcollide_pairs('sword:enemy', None, boss)
         game_world.addcollide_pairs('enemy:bullet', boss, None)
-        game_world.addcollide_pairs('enemy:ground', boss, None)  # 보스도 바닥에 서야 함
-
-    print("Stage Reset Complete.")
-def reset_world():
-    bg =  Background()
-    game_world.add_object(bg, 0)
-
-
-    #지형지물 생성
-    for i in range(4):
-        long_grass_bar = Grass(240 + 483 * i, 30, 16, 223, 161, 33, scale = 3.0)
-        game_world.add_object(long_grass_bar, 0)
-        game_world.addcollide_pairs('player:ground', None, long_grass_bar)
-        game_world.addcollide_pairs('enemy:ground' , None , long_grass_bar)
-
-    for i in range(4):
-        long_grass_bar = Grass(723 + 483 * i, 200, 16, 223, 161, 33, scale = 3.0)
-        game_world.add_object(long_grass_bar, 0)
-        game_world.addcollide_pairs('player:ground', None, long_grass_bar)
-        game_world.addcollide_pairs('enemy:ground' , None , long_grass_bar)
-
-
-    global player , flash_effect , current_portal
-
-    # 플레이어
-    player = Player(16, 90)
-
-    game_world.add_object(player, 1)
-    game_world.addcollide_pairs('player:enemy',player,None)
-    game_world.addcollide_pairs('player:ground',player,None)
-    game_world.addcollide_pairs('player:enemy_attack',player,None)
-
-    player_hp_bar = hpbar.Hpbar(player)
-    game_world.add_object(player_hp_bar, 0)
-
-    current_portal = Portal(1500, 100)
-    game_world.add_object(current_portal, 1)  # Player와 같은 레이어
-
-    # 🌟 [추가] 충돌 쌍 등록 (플레이어 : 포탈)
-    game_world.addcollide_pairs('player:portal', player, current_portal)
-
-    #화면 깜빡임 추가
-    flash_obj = screen_effects.load(DEFINES.SCW, DEFINES.SCH)
-    game_world.add_object(flash_obj, 3)
-
-    #몬스터 추가
-    enemys = [Enemy() for i in range(4)]
-    game_world.add_objects(enemys, 1)
-
-    for enemy in enemys:
-        game_world.addcollide_pairs('enemy:bullet', enemy, None)
-        game_world.addcollide_pairs('player:enemy', None, enemy)
-        game_world.addcollide_pairs('sword:enemy' , None , enemy)
-        game_world.addcollide_pairs('enemy:ground', enemy, None)
-
-    #
-    #     game_world.addcollide_pairs('enemy:bullet', None, bullet)
+        game_world.addcollide_pairs('enemy:ground', boss, None)
 
     print("Stage Reset Complete.")
 
-
-    _gun = Gun(player.x + 16, player.y , player)
-    game_world.add_object(_gun, 1)
-
-    player.scale = [3.0, 3.0]
-    _gun.scale = [2.0, 2.0]
+# def reset_world():
+#     bg =  Background()
+#     game_world.add_object(bg, 0)
+#
+#
+#     #지형지물 생성
+#     for i in range(4):
+#         long_grass_bar = Grass(240 + 483 * i, 30, 16, 223, 161, 33, scale = 3.0)
+#         game_world.add_object(long_grass_bar, 0)
+#         game_world.addcollide_pairs('player:ground', None, long_grass_bar)
+#         game_world.addcollide_pairs('enemy:ground' , None , long_grass_bar)
+#
+#     for i in range(4):
+#         long_grass_bar = Grass(723 + 483 * i, 200, 16, 223, 161, 33, scale = 3.0)
+#         game_world.add_object(long_grass_bar, 0)
+#         game_world.addcollide_pairs('player:ground', None, long_grass_bar)
+#         game_world.addcollide_pairs('enemy:ground' , None , long_grass_bar)
+#
+#
+#     global player , flash_effect , current_portal
+#
+#     # 플레이어
+#     player = Player(16, 90)
+#
+#     game_world.add_object(player, 1)
+#     game_world.addcollide_pairs('player:enemy',player,None)
+#     game_world.addcollide_pairs('player:ground',player,None)
+#     game_world.addcollide_pairs('player:enemy_attack',player,None)
+#
+#     player_hp_bar = hpbar.Hpbar(player)
+#     game_world.add_object(player_hp_bar, 0)
+#
+#     current_portal = Portal(1500, 100)
+#     game_world.add_object(current_portal, 1)  # Player와 같은 레이어
+#
+#     # 🌟 [추가] 충돌 쌍 등록 (플레이어 : 포탈)
+#     game_world.addcollide_pairs('player:portal', player, current_portal)
+#
+#     #화면 깜빡임 추가
+#     flash_obj = screen_effects.load(DEFINES.SCW, DEFINES.SCH)
+#     game_world.add_object(flash_obj, 3)
+#
+#     #몬스터 추가
+#     enemys = [Enemy() for i in range(4)]
+#     game_world.add_objects(enemys, 1)
+#
+#     for enemy in enemys:
+#         game_world.addcollide_pairs('enemy:bullet', enemy, None)
+#         game_world.addcollide_pairs('player:enemy', None, enemy)
+#         game_world.addcollide_pairs('sword:enemy' , None , enemy)
+#         game_world.addcollide_pairs('enemy:ground', enemy, None)
+#
+#     #
+#     #     game_world.addcollide_pairs('enemy:bullet', None, bullet)
+#
+#     print("Stage Reset Complete.")
+#
+#
+#     _gun = Gun(player.x + 16, player.y , player)
+#     game_world.add_object(_gun, 1)
+#
+#     player.scale = [3.0, 3.0]
+#     _gun.scale = [2.0, 2.0]
 
 
 
