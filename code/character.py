@@ -467,7 +467,6 @@ class Player:
             self.invincible_time -= dt
 
 
-        # 🌟 3. 'dir'을 매 프레임 'key_map' 기준으로 계산
         new_dir = self.key_map['d'] - self.key_map['a']
 
         # 방향이 0이 아니게 되었을 때 (정지 -> 움직임)
@@ -485,17 +484,38 @@ class Player:
 
         self.state_machine.update(dt)
 
+
         # 🌟 디버깅: 총 모드일 때 마우스 상태 확인
         if DEFINES.current_weapon_mode == DEFINES.WEAPON_GUN:
+            # 1. 위치 동기화
+            self.gun.x = self.x
+            self.gun.y = self.y
+            # 2. 방향 동기화 (총이 플레이어가 보는 곳을 봐야 함)
+            # gun 내부에 dir 변수가 있다면 넣어주세요 (없으면 에러날 수 있으니 확인 필요)
+            if hasattr(self.gun, 'dir'):
+                self.gun.dir = self.face_dir
+
             self.gun.update(dt)
 
-            # handle_event에서 True로 만든 변수를 여기서 검사합니다.
             if self.mouse_button_down:
-                self.gun.try_fire(game_world.world[1])  # 👈 여기서 발사!
+                self.gun.try_fire(game_world.world[1])
 
         elif DEFINES.current_weapon_mode == DEFINES.WEAPON_SWORD:
+            # 검은 보통 Player 객체를 가지고 있어서 내부에서 처리할 수도 있지만,
+            # 혹시 모르니 위치가 안 맞다면 여기서도 맞춰줍니다.
+            if hasattr(self.sword, 'x'): self.sword.x = self.x
+            if hasattr(self.sword, 'y'): self.sword.y = self.y
+
             self.sword.update(dt)
+
         elif DEFINES.current_weapon_mode == DEFINES.WEAPON_RAILGUN:
+            # 레일건 위치 동기화
+            self.railgun.x = self.x
+            self.railgun.y = self.y
+            # 레일건 방향 동기화
+            if hasattr(self.railgun, 'dir'):
+                self.railgun.dir = self.face_dir
+
             self.railgun.update(dt)
 
     def draw(self):

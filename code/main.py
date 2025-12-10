@@ -16,6 +16,7 @@ from portal import Portal
 
 current_stage = 1  # 현재 스테이지 (1부터 시작)
 
+bgm = None
 
 def collide(a, b):
     left_a, bottom_a, right_a, top_a = a.get_bb()
@@ -64,20 +65,21 @@ def handle_events():
 
 # 🌟 1. 움직이지 않는 배경/벽만 생성 (최초 1회)
 def init_static_objects():
+    global bgm
+    if bgm is None:
+        # 파일 경로를 정확히 입력해야 합니다. (폴더명/파일이름.mp3)
+        bgm = load_music('resource/Audio/Jomon Grove - The Mini Vandals.mp3')
+
+        bgm.set_volume(32)  # 소리 크기 (0~128)
+        bgm.repeat_play()  # 무한 반복 재생
     server.background = Background()
     game_world.add_object(server.background, 0)  # 레이어 0번에 추가
 
-    # 지형지물(Grass) 생성
-    # (기존 reset_world에 있던 벽 생성 코드 이동)
     for i in range(7):
         long_grass_bar = Grass(240 + 483 * i, 30, 16, 223, 161, 33, scale=3.0)
         game_world.add_object(long_grass_bar, 0)  # Layer 0: 벽
 
-        # 🌟 [중요] 충돌 그룹 이름만 등록해둠 (대상 객체는 나중에 추가될 때 연결)
-        # 여기서는 벽(long_grass_bar)은 변하지 않으니 미리 충돌 그룹에 넣어둠
-        # 단, 'player:ground' 같은 쌍은 player가 생길 때 add_collision_pair 해야 함.
-        # 하지만 game_world 구조상, 그룹에 객체를 미리 넣어두는 방식이라면 여기서 추가.
-        # 보통 add_collision_pair(group, a, b) 방식이라면 여기서 할 필요 없음.
+    
         pass
 
     for i in range(5):
@@ -109,9 +111,7 @@ def reset_stage():
     _gun.scale = [2.0, 2.0]
     game_world.add_object(_gun, 1)
 
-    # ------------------------------------------------------
-    # 🌟🌟 몬스터 대량 소환! 🌟🌟
-    # ------------------------------------------------------
+    #몬스터
     enemys = []
     current_portal = None
     boss = None
@@ -194,72 +194,6 @@ def reset_stage():
         game_world.addcollide_pairs('enemy:ground', boss, None)
 
     print("Stage Reset Complete.")
-
-# def reset_world():
-#     bg =  Background()
-#     game_world.add_object(bg, 0)
-#
-#
-#     #지형지물 생성
-#     for i in range(4):
-#         long_grass_bar = Grass(240 + 483 * i, 30, 16, 223, 161, 33, scale = 3.0)
-#         game_world.add_object(long_grass_bar, 0)
-#         game_world.addcollide_pairs('player:ground', None, long_grass_bar)
-#         game_world.addcollide_pairs('enemy:ground' , None , long_grass_bar)
-#
-#     for i in range(4):
-#         long_grass_bar = Grass(723 + 483 * i, 200, 16, 223, 161, 33, scale = 3.0)
-#         game_world.add_object(long_grass_bar, 0)
-#         game_world.addcollide_pairs('player:ground', None, long_grass_bar)
-#         game_world.addcollide_pairs('enemy:ground' , None , long_grass_bar)
-#
-#
-#     global player , flash_effect , current_portal
-#
-#     # 플레이어
-#     player = Player(16, 90)
-#
-#     game_world.add_object(player, 1)
-#     game_world.addcollide_pairs('player:enemy',player,None)
-#     game_world.addcollide_pairs('player:ground',player,None)
-#     game_world.addcollide_pairs('player:enemy_attack',player,None)
-#
-#     player_hp_bar = hpbar.Hpbar(player)
-#     game_world.add_object(player_hp_bar, 0)
-#
-#     current_portal = Portal(1500, 100)
-#     game_world.add_object(current_portal, 1)  # Player와 같은 레이어
-#
-#     # 🌟 [추가] 충돌 쌍 등록 (플레이어 : 포탈)
-#     game_world.addcollide_pairs('player:portal', player, current_portal)
-#
-#     #화면 깜빡임 추가
-#     flash_obj = screen_effects.load(DEFINES.SCW, DEFINES.SCH)
-#     game_world.add_object(flash_obj, 3)
-#
-#     #몬스터 추가
-#     enemys = [Enemy() for i in range(4)]
-#     game_world.add_objects(enemys, 1)
-#
-#     for enemy in enemys:
-#         game_world.addcollide_pairs('enemy:bullet', enemy, None)
-#         game_world.addcollide_pairs('player:enemy', None, enemy)
-#         game_world.addcollide_pairs('sword:enemy' , None , enemy)
-#         game_world.addcollide_pairs('enemy:ground', enemy, None)
-#
-#     #
-#     #     game_world.addcollide_pairs('enemy:bullet', None, bullet)
-#
-#     print("Stage Reset Complete.")
-#
-#
-#     _gun = Gun(player.x + 16, player.y , player)
-#     game_world.add_object(_gun, 1)
-#
-#     player.scale = [3.0, 3.0]
-#     _gun.scale = [2.0, 2.0]
-
-
 
 
 def update_world(dt):
