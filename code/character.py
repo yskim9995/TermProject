@@ -166,22 +166,29 @@ class Jump:
         pass
 
     def do(self, dt):
-        # 1. 애니메이션 (JumpImages는 4장)
+        # 1. 애니메이션
         self.Player.frame_time += dt
         time_per_frame = 1.0 / ANIMATION_SPEED_FPS
 
-        # 점프 이미지는 보통 반복보다는 상승/하강에 따라 다르지만, 일단 반복재생
         if self.Player.frame_time >= time_per_frame:
-            self.Player.frame = (self.Player.frame + 1) % 4  # JumpImages 개수(4)
+            self.Player.frame = (self.Player.frame + 1) % 4
             self.Player.frame_time -= time_per_frame
 
         # 2. 이동 로직
         self.Player.x += self.Player.dir * RUN_SPEED_PPS * dt
-        self.Player.y += self.Player.vy * dt
+
+        # 중력 적용
         self.Player.vy -= GRAVITY_PPS2 * dt
 
-        map_w = server.background.map_width if server.background else DEFINES.SCW * 3
+        # 🌟🌟 [여기 추가] 낙하 속도 제한 (이게 없으면 땅을 뚫음) 🌟🌟
+        # 떨어지는 속도가 -1500을 넘어가면 강제로 -1500으로 고정
+        if self.Player.vy < -1500:
+            self.Player.vy = -1500
 
+        # 위치 변경
+        self.Player.y += self.Player.vy * dt
+
+        map_w = server.background.map_width if server.background else DEFINES.SCW * 3
         self.Player.x = clamp(25, self.Player.x, map_w - 25)
 
     def draw(self):
@@ -342,9 +349,20 @@ class Player:
 
     def __init__(self, x, y):
 
+        self.sfx_walk = load_wav('resource/Audio/footstep_grass_000.ogg')
+        self.sfx_walk.set_volume(20)  # 걷는 소리는 좀 작게
 
-
-
+        # self.sfx_jump = load_wav('resource/Audio/jump.ogg')
+        # self.sfx_jump.set_volume(32)  # 소리 크기 조절 (0~128)
+        #
+        #
+        #
+        # self.sfx_hurt = load_wav('resource/Audio/hurt.ogg')
+        # self.sfx_hurt.set_volume(50)
+        #
+        # self.sfx_swing = load_wav('resource/Audio/swing.ogg')
+        # self.sfx_swing.set_volume(40)
+        self.walk_timer = 0
         #아이들
         self.IdleImages = [load_image('resource/Sprites/Character/player/player_idle1.png'),
                            load_image('resource/Sprites/Character/player/player_idle2.png'),

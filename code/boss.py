@@ -523,13 +523,15 @@ class Attack3:
         self.timer = 0
         self.attacked = False
 
-        # 🌟 [추가] 공격 시작 시 플레이어를 바라보도록 방향(face_dir) 설정
-        if self.boss.target:
-            if self.boss.target.x > self.boss.x:
-                self.boss.face_dir = 1  # 오른쪽
+        # 🌟 [수정] 플레이어 위치를 보고 방향 결정
+        # server.player가 존재한다면 그쪽을 바라봄
+        if server.player:
+            if server.player.x > self.boss.x:
+                self.boss.face_dir = 1  # 플레이어가 오른쪽 -> 오른쪽 봄
             else:
-                self.boss.face_dir = -1  # 왼쪽
-        self.boss.dir = self.boss.face_dir
+                self.boss.face_dir = -1  # 플레이어가 왼쪽 -> 왼쪽 봄
+
+        print(f"오로라 패턴 시작! 방향: {self.boss.face_dir}")
     def exit(self, e):
         pass
 
@@ -552,19 +554,28 @@ class Attack3:
 
     def draw(self):
         sx, sy = server.world_to_screen(self.boss.x, self.boss.y)
-        BOTTOM_ROW = 32 * 2
+
+        # 프레임 계산 (기존 코드 유지)
+        BOTTOM_ROW = 32 * 2  # 혹은 해당하는 행 번호
         frame_idx = int(self.timer * 8) % 8
         frame_x = frame_idx * 32
 
+        # 🌟 [수정] face_dir에 따라 이미지 뒤집기
         if self.boss.face_dir == 1:
-            # 오른쪽을 볼 때 -> 반전시켜서 그림 ('h' 추가)
-            self.boss.image.clip_composite_draw(frame_x, BOTTOM_ROW, 32, 16, 0, 'h', sx, sy, 32 * self.boss.scale[0],
-                                                16 * self.boss.scale[1])
+            # 오른쪽을 볼 때 (반대로 그려야 한다고 하셨으므로 여기에 'h' 추가)
+            self.boss.image.clip_composite_draw(
+                frame_x, BOTTOM_ROW, 32, 16,
+                0, 'h',
+                sx, sy,
+                32 * self.boss.scale[0], 16 * self.boss.scale[1]
+            )
         else:
-            # 왼쪽을 볼 때 -> 그냥 그림 (원래 코드를 이쪽으로 이동)
-            self.boss.image.clip_draw(frame_x, BOTTOM_ROW, 32, 16, sx, sy, 32 * self.boss.scale[0],
-                                      16 * self.boss.scale[1])
-
+            # 왼쪽을 볼 때 (그냥 그림)
+            self.boss.image.clip_draw(
+                frame_x, BOTTOM_ROW, 32, 16,
+                sx, sy,
+                32 * self.boss.scale[0], 16 * self.boss.scale[1]
+            )
 class Hit:
     def __init__(self, boss):
         self.boss = boss
